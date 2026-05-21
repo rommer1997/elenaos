@@ -1,0 +1,26 @@
+# Icons Directory
+
+This directory should contain PWA icons in the following sizes:
+- icon-72x72.png
+- icon-96x96.png
+- icon-128x128.png
+- icon-144x144.png
+- icon-152x152.png
+- icon-192x192.png
+- icon-384x384.png
+- icon-512x512.png
+- badge-72x72.png (for notification badge)
+
+Generate these icons from your app logo using a tool like:
+- https://realfavicongenerator.net/
+- https://www.pwa-icon-generator.com/
+- https://maskable.app/ (for maskable icons)
+
+## Maskable Icons
+
+Maskable icons ensure your icon looks good on all devices with different shapes (circle, squircle, rounded square).
+
+Make sure your icon has safe zone padding:
+- 40% of the icon area should be considered the "safe zone"
+- Important content must fit within this safe zone
+- Background can extend to edges

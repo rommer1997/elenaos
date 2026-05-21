@@ -1,0 +1,19 @@
+{
+  "name": "ElenaOS - Gestión de Salón",
+  "short_name": "ElenaOS",
+  "description": "Sistema inteligente de gestión para salones de belleza con IA",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#9333ea",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/elenaos-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"]
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">ElenaOS</title>
+  <rect width="512" height="512" rx="112" fill="#9333ea"/>
+  <path d="M144 352V160h232v48H200v26h152v44H200v28h180v46H144Z" fill="#ffffff"/>
+  <circle cx="365" cy="153" r="34" fill="#ec4899"/>
+</svg>

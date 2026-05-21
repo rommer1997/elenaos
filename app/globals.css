@@ -3,6 +3,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Theme colors - defaults (can be overridden by salon settings) */
+  --color-primary: #9333ea;
+  --color-secondary: #ec4899;
+  --color-accent: #8b5cf6;
+  --color-background: #ffffff;
+  --color-text: #111827;
+
+  /* RGB versions for opacity usage */
+  --color-primary-rgb: 147, 51, 234;
+  --color-secondary-rgb: 236, 72, 153;
+  --color-accent-rgb: 139, 92, 246;
 }
 
 @theme inline {
