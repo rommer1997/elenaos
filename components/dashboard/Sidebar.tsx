@@ -24,17 +24,17 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/dashboard/dashboard', icon: LayoutDashboard },
   { name: 'Agenda', href: '/dashboard/agenda', icon: Calendar },
   { name: 'Clientes', href: '/dashboard/clientes', icon: UsersIcon },
   { name: 'Retención', href: '/dashboard/retencion', icon: MessageCircle },
-  { name: 'Agente IA', href: '/agente', icon: Bot },
+  { name: 'Agente IA', href: '/dashboard/agente', icon: Bot },
   { name: 'Facturación', href: '/dashboard/facturacion', icon: FileText },
   { name: 'Inventario', href: '/dashboard/inventario', icon: Package },
-  { name: 'Personal', href: '/personal', icon: Users },
-  { name: 'Servicios', href: '/servicios', icon: Scissors },
-  { name: 'Suscripción', href: '/billing', icon: CreditCard },
-  { name: 'Configuración', href: '/configuracion', icon: Settings },
+  { name: 'Personal', href: '/dashboard/personal', icon: Users },
+  { name: 'Servicios', href: '/dashboard/servicios', icon: Scissors },
+  { name: 'Suscripción', href: '/dashboard/billing', icon: CreditCard },
+  { name: 'Configuración', href: '/dashboard/configuracion', icon: Settings },
 ]
 
 interface SidebarProps {
