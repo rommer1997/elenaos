@@ -99,24 +99,9 @@ export function useLoadSalonTheme(enabled = true) {
   useEffect(() => {
     if (!enabled) return
 
-    let isMounted = true
-
-    getSalonTheme()
-      .then((theme) => {
-        if (isMounted) {
-          applyTheme(theme)
-        }
-      })
-      .catch((error) => {
-        console.error('Error loading salon theme:', error)
-        if (isMounted) {
-          applyTheme(null)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
+    // Por ahora, simplemente aplicar el tema por defecto
+    // TODO: Implementar get_my_salon_settings RPC cuando tengamos la tabla de configuración
+    applyTheme(null)
   }, [enabled])
 }
 
