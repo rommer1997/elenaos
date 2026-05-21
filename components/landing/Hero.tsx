@@ -68,15 +68,7 @@ export function Hero() {
               </a>
             </div>
 
-            {/* Trust indicators */}
-            <div className="mt-8 pt-8 border-t border-gray-200">
-              <p className="text-sm text-gray-500 mb-3">Confían en nosotros:</p>
-              <div className="flex items-center gap-6 justify-center lg:justify-start opacity-50">
-                <div className="text-2xl font-bold text-gray-400">Salon A</div>
-                <div className="text-2xl font-bold text-gray-400">Beauty B</div>
-                <div className="text-2xl font-bold text-gray-400">Spa C</div>
-              </div>
-            </div>
+            {/* Trust indicators - removed temporarily */}
           </div>
 
           {/* Right column - Image/Illustration */}
