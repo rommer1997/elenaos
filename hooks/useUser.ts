@@ -18,6 +18,7 @@ interface SimpleTenant {
   id?: string
   name: string
   subdomain?: string
+  schema_name?: string
   plan_type?: string
   trial_ends_at?: string
 }
@@ -62,16 +63,16 @@ export function useUser(): UseUserReturn {
       }
 
       // Intentar cargar el perfil desde la tabla profiles (puede fallar y no pasa nada)
-      let userProfile = null
+      let userProfile: { full_name?: string | null; avatar_url?: string | null } | null = null
       try {
         const { data, error: profileError } = await supabase
-          .from('profiles')
+          .from('profiles' as any)
           .select('*')
           .eq('id', authUser.id)
           .maybeSingle()
 
-        if (!profileError) {
-          userProfile = data
+        if (!profileError && data) {
+          userProfile = data as any
         }
       } catch (e) {
         // Ignorar errores de la tabla profiles
@@ -94,6 +95,7 @@ export function useUser(): UseUserReturn {
         id: authUser.id, // Usar el user ID como tenant ID en versión simplificada
         name: authUser.user_metadata?.salon_name || 'Mi Salón',
         subdomain: 'demo',
+        schema_name: 'public', // Schema público para versión simplificada
         plan_type: 'starter',
         trial_ends_at: undefined,
       }
