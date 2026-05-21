@@ -36,3 +36,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Responsive improvements */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Prevent horizontal scroll on mobile */
+body {
+  overflow-x: hidden;
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 768px) {
+  button,
+  a {
+    min-height: 44px;
+  }
+}

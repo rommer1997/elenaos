@@ -23,7 +23,7 @@ export function Hero() {
             </div>
 
             {/* Headline */}
-            <h1 className="text-5xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight" style={{ fontFamily: 'var(--font-cormorant)' }}>
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
               Recupera las clientas que{' '}
               <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                 están a punto de perderse
@@ -31,23 +31,23 @@ export function Hero() {
             </h1>
 
             {/* Subheadline */}
-            <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+            <p className="text-lg sm:text-xl text-gray-600 mb-8 leading-relaxed">
               ElenaOS es el sistema inteligente que predice qué clientas no volverán y las recupera automáticamente con mensajes personalizados de WhatsApp.
             </p>
 
             {/* Benefits */}
             <div className="flex flex-col gap-3 mb-8">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                <span className="text-gray-700">Inteligencia Artificial que predice pérdida de clientas</span>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <span className="text-sm sm:text-base text-gray-700">Inteligencia Artificial que predice pérdida de clientas</span>
               </div>
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                <span className="text-gray-700">Mensajes automáticos por WhatsApp 100% personalizados</span>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <span className="text-sm sm:text-base text-gray-700">Mensajes automáticos por WhatsApp 100% personalizados</span>
               </div>
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                <span className="text-gray-700">Agenda, CRM, facturación e inventario todo en uno</span>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <span className="text-sm sm:text-base text-gray-700">Agenda, CRM, facturación e inventario todo en uno</span>
               </div>
             </div>
 
@@ -55,14 +55,14 @@ export function Hero() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Link
                 href="/registro"
-                className="group px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all flex items-center justify-center gap-2"
+                className="group px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-base sm:text-lg hover:shadow-2xl hover:scale-105 transition-all flex items-center justify-center gap-2"
               >
                 Prueba gratis 14 días
                 <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <a
                 href="#calculadora"
-                className="px-8 py-4 bg-white border-2 border-purple-200 text-purple-700 rounded-full font-bold text-lg hover:bg-purple-50 transition-colors"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-white border-2 border-purple-200 text-purple-700 rounded-full font-bold text-base sm:text-lg hover:bg-purple-50 transition-colors text-center"
               >
                 Calcula tu ROI
               </a>
@@ -80,7 +80,7 @@ export function Hero() {
           </div>
 
           {/* Right column - Image/Illustration */}
-          <div className="relative">
+          <div className="relative hidden lg:block">
             <div className="relative bg-white rounded-3xl shadow-2xl p-8 border border-purple-100">
               {/* Mock dashboard preview */}
               <div className="space-y-4">
