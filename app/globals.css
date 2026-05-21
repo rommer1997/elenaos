@@ -56,3 +56,23 @@ body {
     min-height: 44px;
   }
 }
+
+/* Fix input text contrast */
+input,
+textarea,
+select {
+  color: #111827 !important;
+  font-weight: 500;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important;
+  font-weight: 400;
+}
+
+/* Ensure labels are readable */
+label {
+  color: #374151 !important;
+  font-weight: 600;
+}
