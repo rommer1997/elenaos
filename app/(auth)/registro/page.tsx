@@ -1,7 +1,15 @@
-import Link from 'next/link'
-import { signup } from '../actions'
+'use client'
 
-export default function RegisterPage() {
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { signup } from '../actions'
+import { Suspense } from 'react'
+
+function RegisterForm() {
+  const searchParams = useSearchParams()
+  const error = searchParams.get('error')
+  const success = searchParams.get('success')
+
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8">
       <div className="mb-6">
@@ -10,6 +18,30 @@ export default function RegisterPage() {
           Empieza gratis, sin tarjeta de crédito
         </p>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-800">
+            <strong>❌ Error:</strong> {decodeURIComponent(error)}
+          </p>
+        </div>
+      )}
+
+      {/* Success message */}
+      {success && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-800">
+            <strong>✅ ¡Cuenta creada!</strong> Por favor, verifica tu email para activar tu cuenta.
+          </p>
+          <Link
+            href="/login"
+            className="text-sm text-green-700 underline mt-2 inline-block"
+          >
+            Ir al login →
+          </Link>
+        </div>
+      )}
 
       <form action={signup} className="space-y-4">
         {/* Datos del salón */}
@@ -94,7 +126,7 @@ export default function RegisterPage() {
               autoComplete="email"
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="laura@bellezalaura.com"
+              placeholder="laura@email.com"
             />
           </div>
 
@@ -114,30 +146,27 @@ export default function RegisterPage() {
               required
               minLength={6}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="••••••••"
+              placeholder="Mínimo 6 caracteres"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Mínimo 6 caracteres
-            </p>
           </div>
         </div>
 
         {/* Terms */}
-        <div className="flex items-start">
+        <div className="flex items-start gap-2">
           <input
             id="terms"
             name="terms"
             type="checkbox"
             required
-            className="h-4 w-4 mt-1 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+            className="mt-1"
           />
-          <label htmlFor="terms" className="ml-2 text-sm text-gray-600">
+          <label htmlFor="terms" className="text-sm text-gray-600">
             Acepto los{' '}
-            <Link href="/terminos" className="text-purple-600 hover:text-purple-700">
+            <Link href="/terminos" className="text-purple-600 hover:underline">
               términos y condiciones
             </Link>{' '}
             y la{' '}
-            <Link href="/privacidad" className="text-purple-600 hover:text-purple-700">
+            <Link href="/privacidad" className="text-purple-600 hover:underline">
               política de privacidad
             </Link>
           </label>
@@ -165,18 +194,20 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      {/* Trial benefits */}
+      {/* Trial notice */}
       <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-100">
-        <p className="text-xs font-semibold text-purple-900 mb-2">
-          ✨ Incluido en tu prueba gratis:
+        <p className="text-sm text-purple-800 text-center">
+          🎉 <strong>14 días gratis</strong> sin tarjeta de crédito
         </p>
-        <ul className="text-xs text-purple-800 space-y-1">
-          <li>✓ Agenda inteligente con tiempo real</li>
-          <li>✓ CRM con IA y predicción de churn</li>
-          <li>✓ 200 mensajes WhatsApp automáticos</li>
-          <li>✓ Facturación fiscal España</li>
-        </ul>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <RegisterForm />
+    </Suspense>
   )
 }

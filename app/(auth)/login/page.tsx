@@ -1,7 +1,23 @@
-import Link from 'next/link'
-import { login } from '../actions'
+'use client'
 
-export default function LoginPage() {
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { login } from '../actions'
+import { Suspense } from 'react'
+
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const error = searchParams.get('error')
+
+  const getErrorMessage = (errorCode: string) => {
+    const messages: Record<string, string> = {
+      'invalid_credentials': 'Email o contraseña incorrectos',
+      'email_not_confirmed': 'Por favor, verifica tu email antes de iniciar sesión',
+      'auto_login_failed': 'No se pudo iniciar sesión automáticamente',
+    }
+    return messages[errorCode] || errorCode
+  }
+
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8">
       <div className="mb-6">
@@ -10,6 +26,15 @@ export default function LoginPage() {
           Accede a tu salón
         </p>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-800">
+            <strong>❌ Error:</strong> {getErrorMessage(error)}
+          </p>
+        </div>
+      )}
 
       <form action={login} className="space-y-4">
         {/* Email */}
@@ -99,5 +124,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
