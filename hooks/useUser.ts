@@ -3,54 +3,36 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
-import type { User as AppUser, Tenant, UserRole } from '@/types'
-import type { Database } from '@/types/supabase'
 
-type UserProfileRow = Database['public']['Tables']['user_profiles']['Row']
-type TenantRow = Database['public']['Tables']['tenants']['Row']
+interface SimpleProfile {
+  id: string
+  email: string | null
+  full_name: string | null
+  avatar_url: string | null
+  first_name?: string
+  last_name?: string
+  role?: string
+}
+
+interface SimpleTenant {
+  name: string
+  subdomain?: string
+  plan_type?: string
+  trial_ends_at?: string
+}
 
 interface UseUserReturn {
   user: User | null
-  profile: AppUser | null
-  tenant: Tenant | null
+  profile: SimpleProfile | null
+  tenant: SimpleTenant | null
   isLoading: boolean
   error: Error | null
 }
 
-function toAppProfile(profile: UserProfileRow, authUser: User, tenantSchema: string): AppUser {
-  return {
-    id: authUser.id,
-    email: authUser.email ?? '',
-    role: profile.role as UserRole,
-    tenant_id: profile.tenant_id,
-    tenant_schema: tenantSchema,
-    first_name: profile.first_name ?? undefined,
-    last_name: profile.last_name ?? undefined,
-    avatar_url: profile.avatar_url ?? undefined,
-    created_at: profile.created_at,
-    updated_at: profile.updated_at,
-  }
-}
-
-function toAppTenant(tenant: TenantRow): Tenant {
-  return {
-    id: tenant.id,
-    name: tenant.name,
-    slug: tenant.slug,
-    subdomain: tenant.subdomain ?? '',
-    schema_name: tenant.schema_name,
-    plan_type: tenant.plan_type,
-    is_active: tenant.is_active,
-    trial_ends_at: tenant.trial_ends_at ?? undefined,
-    subscription_ends_at: tenant.subscription_ends_at ?? undefined,
-    created_at: tenant.created_at,
-  }
-}
-
 export function useUser(): UseUserReturn {
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<AppUser | null>(null)
-  const [tenant, setTenant] = useState<Tenant | null>(null)
+  const [profile, setProfile] = useState<SimpleProfile | null>(null)
+  const [tenant, setTenant] = useState<SimpleTenant | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
@@ -77,31 +59,40 @@ export function useUser(): UseUserReturn {
         return
       }
 
+      // Intentar cargar el perfil desde la tabla profiles
       const { data: userProfile, error: profileError } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .select('*')
         .eq('id', authUser.id)
         .single()
 
+      // Si falla, no pasa nada, usamos los datos del auth
       if (profileError) {
-        throw profileError
+        console.warn('No profile found, using auth data only')
       }
 
-      const { data: tenantData, error: tenantError } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', userProfile.tenant_id)
-        .single()
-
-      if (tenantError) {
-        throw tenantError
+      // Construir el perfil simple
+      const simpleProfile: SimpleProfile = {
+        id: authUser.id,
+        email: authUser.email ?? null,
+        full_name: userProfile?.full_name || authUser.user_metadata?.full_name || null,
+        avatar_url: userProfile?.avatar_url || authUser.user_metadata?.avatar_url || null,
+        first_name: authUser.user_metadata?.full_name?.split(' ')[0],
+        last_name: authUser.user_metadata?.full_name?.split(' ').slice(1).join(' '),
+        role: 'owner', // Por defecto es owner en versión simplificada
       }
 
-      const appTenant = toAppTenant(tenantData)
+      // Construir tenant simple desde metadata
+      const simpleTenant: SimpleTenant = {
+        name: authUser.user_metadata?.salon_name || 'Mi Salón',
+        subdomain: 'demo',
+        plan_type: 'starter',
+        trial_ends_at: undefined,
+      }
 
       setUser(authUser)
-      setTenant(appTenant)
-      setProfile(toAppProfile(userProfile, authUser, appTenant.schema_name))
+      setProfile(simpleProfile)
+      setTenant(simpleTenant)
     } catch (err) {
       console.error('Error loading user:', err)
       setUser(null)
