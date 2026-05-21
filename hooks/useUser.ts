@@ -15,6 +15,7 @@ interface SimpleProfile {
 }
 
 interface SimpleTenant {
+  id?: string
   name: string
   subdomain?: string
   plan_type?: string
@@ -90,6 +91,7 @@ export function useUser(): UseUserReturn {
 
       // Construir tenant simple desde metadata
       const simpleTenant: SimpleTenant = {
+        id: authUser.id, // Usar el user ID como tenant ID en versión simplificada
         name: authUser.user_metadata?.salon_name || 'Mi Salón',
         subdomain: 'demo',
         plan_type: 'starter',
