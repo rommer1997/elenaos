@@ -56,22 +56,28 @@ export function useUser(): UseUserReturn {
         setUser(null)
         setProfile(null)
         setTenant(null)
+        setIsLoading(false)
         return
       }
 
-      // Intentar cargar el perfil desde la tabla profiles
-      const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
+      // Intentar cargar el perfil desde la tabla profiles (puede fallar y no pasa nada)
+      let userProfile = null
+      try {
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle()
 
-      // Si falla, no pasa nada, usamos los datos del auth
-      if (profileError) {
-        console.warn('No profile found, using auth data only')
+        if (!profileError) {
+          userProfile = data
+        }
+      } catch (e) {
+        // Ignorar errores de la tabla profiles
+        console.log('Using auth metadata only (profiles table not available)')
       }
 
-      // Construir el perfil simple
+      // Construir el perfil simple desde auth metadata
       const simpleProfile: SimpleProfile = {
         id: authUser.id,
         email: authUser.email ?? null,
@@ -93,13 +99,13 @@ export function useUser(): UseUserReturn {
       setUser(authUser)
       setProfile(simpleProfile)
       setTenant(simpleTenant)
+      setIsLoading(false)
     } catch (err) {
       console.error('Error loading user:', err)
       setUser(null)
       setProfile(null)
       setTenant(null)
       setError(err instanceof Error ? err : new Error('Error cargando usuario'))
-    } finally {
       setIsLoading(false)
     }
   }, [])
