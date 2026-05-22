@@ -29,7 +29,7 @@ export async function login(formData: FormData): Promise<void> {
 }
 
 /**
- * Signup: Crear usuario (versión simplificada)
+ * Signup: Crear usuario con tenant y perfil automático
  */
 export async function signup(formData: FormData): Promise<void> {
   const supabase = await createClient()
@@ -42,12 +42,16 @@ export async function signup(formData: FormData): Promise<void> {
   const salonName = formData.get('salonName') as string
 
   // Crear usuario en Supabase Auth
+  // IMPORTANTE: El trigger handle_new_user() en la base de datos
+  // creará automáticamente el tenant y user_profile
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         full_name: `${firstName} ${lastName}`,
+        first_name: firstName,
+        last_name: lastName,
         salon_name: salonName,
       },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
@@ -63,9 +67,13 @@ export async function signup(formData: FormData): Promise<void> {
     redirect('/registro?error=Usuario no creado. Intenta de nuevo.')
   }
 
-  // Redirigir a página de confirmación
+  // Esperar un momento para que el trigger de base de datos termine
+  // de crear el tenant y user_profile
+  await new Promise(resolve => setTimeout(resolve, 1000))
+
+  // Redirigir al dashboard o al onboarding
   revalidatePath('/', 'layout')
-  redirect('/registro?success=true')
+  redirect('/onboarding')
 }
 
 /**

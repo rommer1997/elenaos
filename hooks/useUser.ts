@@ -62,42 +62,61 @@ export function useUser(): UseUserReturn {
         return
       }
 
-      // Intentar cargar el perfil desde la tabla profiles (puede fallar y no pasa nada)
-      let userProfile: { full_name?: string | null; avatar_url?: string | null } | null = null
-      try {
-        const { data, error: profileError } = await supabase
-          .from('profiles' as any)
-          .select('*')
-          .eq('id', authUser.id)
-          .maybeSingle()
+      // Cargar user_profile desde la base de datos
+      const { data: userProfileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id, tenant_id, role, first_name, last_name, avatar_url')
+        .eq('id', authUser.id)
+        .maybeSingle()
 
-        if (!profileError && data) {
-          userProfile = data as any
-        }
-      } catch (e) {
-        // Ignorar errores de la tabla profiles
-        console.log('Using auth metadata only (profiles table not available)')
+      if (profileError) {
+        console.error('Error loading user profile:', profileError)
+        throw new Error('No se pudo cargar el perfil de usuario')
       }
 
-      // Construir el perfil simple desde auth metadata
+      if (!userProfileData) {
+        console.error('User profile not found for user:', authUser.id)
+        throw new Error('Perfil de usuario no encontrado. Por favor contacta soporte.')
+      }
+
+      // Cargar tenant desde la base de datos
+      const { data: tenantData, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, name, slug, subdomain, schema_name, plan_type, trial_ends_at, is_active')
+        .eq('id', userProfileData.tenant_id)
+        .maybeSingle()
+
+      if (tenantError) {
+        console.error('Error loading tenant:', tenantError)
+        throw new Error('No se pudo cargar la información del salón')
+      }
+
+      if (!tenantData) {
+        console.error('Tenant not found for tenant_id:', userProfileData.tenant_id)
+        throw new Error('Salón no encontrado. Por favor contacta soporte.')
+      }
+
+      // Construir el perfil desde la base de datos
       const simpleProfile: SimpleProfile = {
-        id: authUser.id,
+        id: userProfileData.id,
         email: authUser.email ?? null,
-        full_name: userProfile?.full_name || authUser.user_metadata?.full_name || null,
-        avatar_url: userProfile?.avatar_url || authUser.user_metadata?.avatar_url || null,
-        first_name: authUser.user_metadata?.full_name?.split(' ')[0],
-        last_name: authUser.user_metadata?.full_name?.split(' ').slice(1).join(' '),
-        role: 'owner', // Por defecto es owner en versión simplificada
+        full_name: userProfileData.first_name && userProfileData.last_name
+          ? `${userProfileData.first_name} ${userProfileData.last_name}`
+          : authUser.user_metadata?.full_name || null,
+        avatar_url: userProfileData.avatar_url || null,
+        first_name: userProfileData.first_name || authUser.user_metadata?.first_name,
+        last_name: userProfileData.last_name || authUser.user_metadata?.last_name,
+        role: userProfileData.role || 'admin',
       }
 
-      // Construir tenant simple desde metadata
+      // Construir tenant desde la base de datos
       const simpleTenant: SimpleTenant = {
-        id: authUser.id, // Usar el user ID como tenant ID en versión simplificada
-        name: authUser.user_metadata?.salon_name || 'Mi Salón',
-        subdomain: 'demo',
-        schema_name: 'public', // Schema público para versión simplificada
-        plan_type: 'starter',
-        trial_ends_at: undefined,
+        id: tenantData.id,
+        name: tenantData.name,
+        subdomain: tenantData.subdomain || undefined,
+        schema_name: tenantData.schema_name,
+        plan_type: tenantData.plan_type || 'starter',
+        trial_ends_at: tenantData.trial_ends_at || undefined,
       }
 
       setUser(authUser)
