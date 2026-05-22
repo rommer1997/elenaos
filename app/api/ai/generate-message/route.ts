@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { generateRetentionMessage, type ClientProfile } from '@/lib/ai/message-generator'
 import { calculateChurnRisk, type ClientData } from '@/lib/ai/risk-calculator'
+
+// Importar generadores según configuración
+import * as GeminiGenerator from '@/lib/ai/gemini-message-generator'
+import * as ClaudeGenerator from '@/lib/ai/message-generator'
+
+// Determinar qué generador usar
+const useGemini = !!process.env.GEMINI_API_KEY
+const messageGenerator = useGemini ? GeminiGenerator : ClaudeGenerator
+type ClientProfile = typeof messageGenerator extends typeof GeminiGenerator
+  ? GeminiGenerator.ClientProfile
+  : ClaudeGenerator.ClientProfile
 
 interface GenerateMessageRequest {
   clientId: string
@@ -75,8 +85,10 @@ export async function POST(request: NextRequest) {
       lastVisitService: 'Manicura clásica'
     }
 
-    // Generar mensaje con Claude
-    const generatedMessage = await generateRetentionMessage(clientProfile)
+    // Generar mensaje con Gemini o Claude (según configuración)
+    const generatedMessage = await messageGenerator.generateRetentionMessage(clientProfile)
+
+    console.log(`[AI] Mensaje generado con ${useGemini ? 'Gemini' : 'Claude'}`)
 
     return NextResponse.json({
       success: true,
