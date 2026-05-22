@@ -28,7 +28,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.tenants (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL, -- URL-safe: "belleza-laura"
   subdomain TEXT UNIQUE, -- "belleza-laura.elenaos.app"
@@ -66,6 +66,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_tenants_updated_at ON public.tenants;
 CREATE TRIGGER update_tenants_updated_at
   BEFORE UPDATE ON public.tenants
   FOR EACH ROW
@@ -77,7 +78,7 @@ CREATE TRIGGER update_tenants_updated_at
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.billing_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL, -- subscription_created, subscription_updated, etc.
   payload JSONB NOT NULL,
@@ -108,6 +109,7 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
 CREATE INDEX IF NOT EXISTS idx_user_profiles_tenant ON public.user_profiles(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_role ON public.user_profiles(role);
 
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON public.user_profiles;
 CREATE TRIGGER update_user_profiles_updated_at
   BEFORE UPDATE ON public.user_profiles
   FOR EACH ROW
@@ -136,7 +138,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.salon_settings (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       salon_id UUID NOT NULL,
 
       -- Identidad
@@ -184,7 +186,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.staff (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
       email TEXT,
       role TEXT, -- "Esteticista", "Recepcionista", etc.
@@ -203,7 +205,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.services (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
       description TEXT,
       duration_minutes INTEGER NOT NULL DEFAULT 60,
@@ -224,7 +226,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.clients (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
       -- Datos básicos
       first_name TEXT NOT NULL,
@@ -281,7 +283,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.appointments (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       client_id UUID REFERENCES %I.clients(id) ON DELETE CASCADE,
       staff_id UUID REFERENCES %I.staff(id) ON DELETE SET NULL,
       service_id UUID REFERENCES %I.services(id) ON DELETE SET NULL,
@@ -326,7 +328,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.whatsapp_messages (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       client_id UUID REFERENCES %I.clients(id) ON DELETE CASCADE,
       campaign_id UUID, -- Relación con retention_campaigns
 
@@ -358,7 +360,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.retention_campaigns (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       client_id UUID REFERENCES %I.clients(id) ON DELETE CASCADE,
       rule_id UUID, -- ID de la regla que generó esta campaña
 
@@ -387,14 +389,14 @@ BEGIN
   EXECUTE format('CREATE INDEX ON %I.retention_campaigns(sent_at)', schema_name);
 
   -- Índice para jobs: campañas pendientes de enviar
-  EXECUTE format('CREATE INDEX ON %I.retention_campaigns(scheduled_for, status) WHERE status = ''scheduled'' AND scheduled_for <= now()', schema_name);
+  EXECUTE format('CREATE INDEX ON %I.retention_campaigns(scheduled_for, status) WHERE status = ''scheduled''', schema_name);
 
   -- -----------------------------------------------------------------------------
   -- TABLA: invoices (Facturas)
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.invoices (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       invoice_number TEXT UNIQUE NOT NULL, -- FAC-2026-0001
       client_id UUID REFERENCES %I.clients(id) ON DELETE SET NULL,
 
@@ -437,7 +439,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.invoice_lines (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       invoice_id UUID REFERENCES %I.invoices(id) ON DELETE CASCADE,
 
       -- Detalle
@@ -457,7 +459,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.inventory_items (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
       code TEXT, -- Código de barras o SKU
       supplier TEXT,
@@ -482,7 +484,7 @@ BEGIN
   -- -----------------------------------------------------------------------------
   EXECUTE format('
     CREATE TABLE %I.inventory_movements (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       item_id UUID REFERENCES %I.inventory_items(id) ON DELETE CASCADE,
 
       -- Tipo de movimiento
@@ -613,7 +615,7 @@ BEGIN
   RAISE NOTICE 'Schema % creado exitosamente para tenant %', schema_name, tenant_id;
 
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 
 -- =============================================================================
@@ -623,13 +625,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION trigger_create_tenant_schema()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Crear schema con nombre único
-  PERFORM create_tenant_schema(NEW.id, NEW.schema_name);
+  -- Crear schema con nombre único en public
+  PERFORM public.create_tenant_schema(NEW.id, NEW.schema_name);
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
+DROP TRIGGER IF EXISTS on_tenant_created ON public.tenants;
 CREATE TRIGGER on_tenant_created
   AFTER INSERT ON public.tenants
   FOR EACH ROW

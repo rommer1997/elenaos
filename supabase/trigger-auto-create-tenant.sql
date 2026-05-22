@@ -47,7 +47,7 @@ BEGIN
     is_active,
     trial_ends_at
   ) VALUES (
-    uuid_generate_v4(),
+    gen_random_uuid(),
     salon_name_from_meta,
     new_slug,
     new_slug, -- subdomain igual al slug
@@ -81,7 +81,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 -- Eliminar trigger si existe (para re-ejecutar este script)
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
