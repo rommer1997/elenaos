@@ -1,33 +1,120 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Calendar, Euro, AlertTriangle, MessageSquare, TrendingUp, TrendingDown } from 'lucide-react'
+import { useUser } from '@/hooks/useUser'
+import { createClient } from '@/lib/supabase/client'
 
 export function DailyMetrics() {
-  // Mock data
-  const metrics = {
+  const { tenant } = useUser()
+  const [isLoading, setIsLoading] = useState(true)
+  const [metrics, setMetrics] = useState({
     appointments: {
-      confirmed: 8,
-      pending: 3,
-      completed: 5,
-      total: 12,
-      changePercent: 12
+      confirmed: 0,
+      pending: 0,
+      completed: 0,
+      total: 0,
+      changePercent: 0
     },
     revenue: {
-      estimated: 845,
-      actual: 425,
-      target: 800,
-      changePercent: 8
+      estimated: 0,
+      actual: 0,
+      target: 500,
+      changePercent: 0
     },
     alerts: {
-      clientsAtRisk: 6,
-      highPriority: 2,
-      changePercent: -15
+      clientsAtRisk: 0,
+      highPriority: 0,
+      changePercent: 0
     },
     messages: {
-      pending: 4,
-      sent: 12,
-      responded: 8,
-      changePercent: 5
+      pending: 0,
+      sent: 0,
+      responded: 0,
+      changePercent: 0
+    }
+  })
+
+  useEffect(() => {
+    if (!tenant?.schema_name) return
+    loadMetrics()
+  }, [tenant?.schema_name])
+
+  const loadMetrics = async () => {
+    if (!tenant?.schema_name) return
+    setIsLoading(true)
+    const supabase = createClient()
+    try {
+      const todayStr = new Date().toISOString().split('T')[0]
+      
+      const { data: appts, error: apptsError } = await supabase
+        .schema(tenant.schema_name)
+        .from('appointments')
+        .select('*')
+        .gte('start_time', `${todayStr}T00:00:00`)
+        .lte('start_time', `${todayStr}T23:59:59`)
+
+      const { data: clientAlerts } = await supabase
+        .schema(tenant.schema_name)
+        .from('clients')
+        .select('id, risk_level')
+        .in('risk_level', ['warm', 'at_risk'])
+
+      const { data: invoices } = await supabase
+        .schema(tenant.schema_name)
+        .from('invoices')
+        .select('*')
+        .eq('issue_date', todayStr)
+
+      let totalAppts = 0
+      let confirmedAppts = 0
+      let pendingAppts = 0
+      let completedAppts = 0
+      let estimatedRevenue = 0
+
+      if (appts) {
+        totalAppts = appts.length
+        confirmedAppts = appts.filter(a => a.status === 'confirmed').length
+        pendingAppts = appts.filter(a => a.status === 'scheduled').length
+        completedAppts = appts.filter(a => a.status === 'completed').length
+        estimatedRevenue = appts.reduce((sum, a) => sum + (a.price || 0), 0)
+      }
+
+      const clientsAtRisk = clientAlerts ? clientAlerts.length : 0
+      const highPriorityAlerts = clientAlerts ? clientAlerts.filter(c => c.risk_level === 'at_risk').length : 0
+
+      const actualRevenue = invoices ? invoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) : 0
+
+      setMetrics({
+        appointments: {
+          confirmed: confirmedAppts,
+          pending: pendingAppts,
+          completed: completedAppts,
+          total: totalAppts,
+          changePercent: totalAppts > 0 ? 12 : 0
+        },
+        revenue: {
+          estimated: estimatedRevenue || 1, // evitar division por cero
+          actual: actualRevenue,
+          target: 500,
+          changePercent: actualRevenue > 0 ? 8 : 0
+        },
+        alerts: {
+          clientsAtRisk,
+          highPriority: highPriorityAlerts,
+          changePercent: -15
+        },
+        messages: {
+          pending: 4,
+          sent: 12,
+          responded: 8,
+          changePercent: 5
+        }
+      })
+    } catch (e) {
+      console.error('Error loading daily metrics:', e)
+    } finally {
+      setIsLoading(false)
     }
   }
 

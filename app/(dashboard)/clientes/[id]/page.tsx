@@ -90,7 +90,7 @@ export default function ClientDetailPage() {
             Clienta no encontrada
           </h3>
           <button
-            onClick={() => router.push('/dashboard/clientes')}
+            onClick={() => router.push('/clientes')}
             className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
             Volver a la lista
@@ -106,7 +106,7 @@ export default function ClientDetailPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <button
-            onClick={() => router.push('/dashboard/clientes')}
+            onClick={() => router.push('/clientes')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />

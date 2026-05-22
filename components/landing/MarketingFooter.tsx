@@ -54,14 +54,14 @@ export function MarketingFooter() {
                 </a>
               </li>
               <li>
-                <a href="/demo" className="hover:text-purple-400 transition-colors">
+                <Link href="/demo" className="hover:text-purple-400 transition-colors">
                   Demo en vivo
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/changelog" className="hover:text-purple-400 transition-colors">
+                <Link href="/changelog" className="hover:text-purple-400 transition-colors">
                   Actualizaciones
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -71,29 +71,29 @@ export function MarketingFooter() {
             <h3 className="text-white font-bold mb-4">Recursos</h3>
             <ul className="space-y-3 text-sm">
               <li>
-                <a href="/blog" className="hover:text-purple-400 transition-colors">
+                <Link href="/blog" className="hover:text-purple-400 transition-colors">
                   Blog
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/academia" className="hover:text-purple-400 transition-colors">
+                <Link href="/academia" className="hover:text-purple-400 transition-colors">
                   Academia
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/guias" className="hover:text-purple-400 transition-colors">
+                <Link href="/guias" className="hover:text-purple-400 transition-colors">
                   Guías
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/ayuda" className="hover:text-purple-400 transition-colors">
+                <Link href="/ayuda" className="hover:text-purple-400 transition-colors">
                   Centro de ayuda
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/api" className="hover:text-purple-400 transition-colors">
+                <Link href="/api" className="hover:text-purple-400 transition-colors">
                   API Docs
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -132,18 +132,18 @@ export function MarketingFooter() {
               © 2026 ElenaOS. Todos los derechos reservados.
             </div>
             <div className="flex gap-6 text-sm">
-              <a href="/privacidad" className="hover:text-purple-400 transition-colors">
+              <Link href="/privacidad" className="hover:text-purple-400 transition-colors">
                 Privacidad
-              </a>
-              <a href="/terminos" className="hover:text-purple-400 transition-colors">
+              </Link>
+              <Link href="/terminos" className="hover:text-purple-400 transition-colors">
                 Términos
-              </a>
-              <a href="/cookies" className="hover:text-purple-400 transition-colors">
+              </Link>
+              <Link href="/cookies" className="hover:text-purple-400 transition-colors">
                 Cookies
-              </a>
-              <a href="/legal" className="hover:text-purple-400 transition-colors">
+              </Link>
+              <Link href="/legal" className="hover:text-purple-400 transition-colors">
                 Aviso Legal
-              </a>
+              </Link>
             </div>
           </div>
         </div>

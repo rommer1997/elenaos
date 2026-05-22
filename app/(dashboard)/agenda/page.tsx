@@ -14,6 +14,9 @@ export default function AgendaPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<string | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  const triggerRefresh = () => setRefreshTrigger((prev) => prev + 1)
 
   const goToToday = () => {
     setSelectedDate(new Date())
@@ -165,6 +168,7 @@ export default function AgendaPage() {
             date={selectedDate}
             onEditAppointment={handleEditAppointment}
             onCreateAppointment={handleCreateAppointment}
+            refreshTrigger={refreshTrigger}
           />
         )}
         {currentView === 'week' && (
@@ -172,17 +176,21 @@ export default function AgendaPage() {
             startDate={selectedDate}
             onEditAppointment={handleEditAppointment}
             onCreateAppointment={handleCreateAppointment}
+            refreshTrigger={refreshTrigger}
           />
         )}
         {currentView === 'list' && (
-          <ListView onEditAppointment={handleEditAppointment} />
+          <ListView onEditAppointment={handleEditAppointment} refreshTrigger={refreshTrigger} />
         )}
       </div>
 
       {/* Appointment Modal */}
       <AppointmentModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false)
+          triggerRefresh()
+        }}
         appointmentId={selectedAppointment}
       />
     </div>

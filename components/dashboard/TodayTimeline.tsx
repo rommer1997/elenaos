@@ -1,93 +1,83 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Clock, User, Scissors } from 'lucide-react'
+import { useUser } from '@/hooks/useUser'
+import { createClient } from '@/lib/supabase/client'
+import type { Appointment } from '@/types'
 
 export function TodayTimeline() {
-  // Mock appointments for today
-  const appointments = [
-    {
-      id: '1',
-      time: '09:00',
-      duration: 60,
-      client: 'María López',
-      service: 'Corte + Color',
-      status: 'completed',
-      staff: 'Elena',
-      color: '#9333ea'
-    },
-    {
-      id: '2',
-      time: '10:30',
-      duration: 45,
-      client: 'Ana García',
-      service: 'Manicura Semipermanente',
-      status: 'completed',
-      staff: 'Carmen',
-      color: '#ec4899'
-    },
-    {
-      id: '3',
-      time: '11:30',
-      duration: 30,
-      client: 'Carmen Rodríguez',
-      service: 'Corte de Pelo',
-      status: 'in_progress',
-      staff: 'Elena',
-      color: '#9333ea'
-    },
-    {
-      id: '4',
-      time: '12:30',
-      duration: 90,
-      client: 'Laura Pérez',
-      service: 'Mechas Californianas',
-      status: 'confirmed',
-      staff: 'María',
-      color: '#8b5cf6'
-    },
-    {
-      id: '5',
-      time: '14:00',
-      duration: 60,
-      client: 'Patricia Sánchez',
-      service: 'Facial Hidratante',
-      status: 'confirmed',
-      staff: 'Ana',
-      color: '#06b6d4'
-    },
-    {
-      id: '6',
-      time: '15:30',
-      duration: 120,
-      client: 'Isabel Martín',
-      service: 'Tinte Completo',
-      status: 'confirmed',
-      staff: 'Elena',
-      color: '#9333ea'
-    },
-    {
-      id: '7',
-      time: '17:00',
-      duration: 45,
-      client: 'Sofía Ruiz',
-      service: 'Pedicura Completa',
-      status: 'pending',
-      staff: 'Carmen',
-      color: '#ec4899'
-    },
-    {
-      id: '8',
-      time: '18:00',
-      duration: 60,
-      client: 'Elena Fernández',
-      service: 'Peinado de Fiesta',
-      status: 'pending',
-      staff: 'María',
-      color: '#8b5cf6'
-    }
-  ]
+  const { tenant } = useUser()
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [currentTime, setCurrentTime] = useState('12:00')
 
-  const currentTime = '11:45' // Mock current time
+  useEffect(() => {
+    setCurrentTime(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }))
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }))
+    }, 60000)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!tenant?.schema_name) return
+    loadAppointments()
+  }, [tenant?.schema_name])
+
+  const loadAppointments = async () => {
+    if (!tenant?.schema_name) return
+    setIsLoading(true)
+    const supabase = createClient()
+    try {
+      const todayStr = new Date().toISOString().split('T')[0]
+      const { data, error } = await supabase
+        .schema(tenant.schema_name)
+        .from('appointments')
+        .select(`
+          *,
+          client:clients(first_name, last_name),
+          staff:staff(first_name, last_name, calendar_color),
+          service:services(name, color)
+        `)
+        .gte('start_time', `${todayStr}T00:00:00`)
+        .lte('start_time', `${todayStr}T23:59:59`)
+        .order('start_time', { ascending: true })
+
+      if (error) throw error
+
+      const mapped = (data || []).map((appt) => {
+        const startTime = new Date(appt.start_time)
+        const endTime = new Date(appt.end_time)
+        const duration = Math.round((endTime.getTime() - startTime.getTime()) / 60000)
+        const timeStr = startTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+
+        // Map status
+        let mappedStatus = 'pending'
+        if (appt.status === 'confirmed') mappedStatus = 'confirmed'
+        if (appt.status === 'completed') mappedStatus = 'completed'
+        if (appt.status === 'scheduled') mappedStatus = 'pending'
+        if (appt.status === 'cancelled') mappedStatus = 'cancelled'
+
+        return {
+          id: appt.id,
+          time: timeStr,
+          duration,
+          client: appt.client ? `${appt.client.first_name} ${appt.client.last_name || ''}`.trim() : 'Cliente sin nombre',
+          service: appt.service ? appt.service.name : 'Servicio',
+          status: mappedStatus,
+          staff: appt.staff ? appt.staff.first_name : 'Personal',
+          color: appt.service?.color || '#9333ea'
+        }
+      })
+
+      setAppointments(mapped)
+    } catch (e) {
+      console.error('Error loading today\'s timeline appointments:', e)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -119,6 +109,17 @@ export function TodayTimeline() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex justify-center items-center h-[350px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-sm text-gray-500">Cargando agenda de hoy...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       {/* Header */}
@@ -136,8 +137,15 @@ export function TodayTimeline() {
       </div>
 
       {/* Timeline */}
-      <div className="space-y-3">
-        {appointments.map((appointment) => {
+      {appointments.length === 0 ? (
+        <div className="text-center py-12 border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+          <Clock className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm font-medium text-gray-600">No hay citas para hoy</p>
+          <p className="text-xs text-gray-500 mt-1">¡Tómate un respiro o crea una cita en la agenda!</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {appointments.map((appointment) => {
           const isCurrentOrPast = appointment.time <= currentTime
           const isCurrent = appointment.status === 'in_progress'
 
@@ -217,6 +225,7 @@ export function TodayTimeline() {
           )
         })}
       </div>
+      )}
 
       {/* Summary */}
       <div className="mt-6 pt-6 border-t border-gray-200">

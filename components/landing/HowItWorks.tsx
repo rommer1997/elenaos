@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Brain, MessageSquare, TrendingUp } from 'lucide-react'
 
 export function HowItWorks() {
@@ -90,12 +91,12 @@ export function HowItWorks() {
             <p className="text-lg text-gray-700 mb-4 max-w-2xl">
               <strong className="text-purple-600">Todo es automático.</strong> Solo tienes que conectar tu WhatsApp una vez y ElenaOS trabajará 24/7 recuperando clientas por ti.
             </p>
-            <a
+            <Link
               href="/registro"
               className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold hover:shadow-xl hover:scale-105 transition-all"
             >
               Configura tu cuenta gratis
-            </a>
+            </Link>
           </div>
         </div>
       </div>

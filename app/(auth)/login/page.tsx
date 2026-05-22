@@ -14,6 +14,8 @@ function LoginForm() {
       'invalid_credentials': 'Email o contraseña incorrectos',
       'email_not_confirmed': 'Por favor, verifica tu email antes de iniciar sesión',
       'auto_login_failed': 'No se pudo iniciar sesión automáticamente',
+      'missing_auth_code': 'El enlace de acceso no es válido o ha expirado',
+      'auth_callback_failed': 'No se pudo confirmar la sesión. Intenta iniciar sesión otra vez',
     }
     return messages[errorCode] || errorCode
   }

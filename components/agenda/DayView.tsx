@@ -10,13 +10,14 @@ interface DayViewProps {
   date: Date
   onEditAppointment: (appointmentId: string) => void
   onCreateAppointment: () => void
+  refreshTrigger?: number
 }
 
 // Horario de trabajo: 9:00 - 21:00 (12 horas)
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9-21
 const SLOT_HEIGHT = 60 // px por hora
 
-export function DayView({ date, onEditAppointment, onCreateAppointment }: DayViewProps) {
+export function DayView({ date, onEditAppointment, onCreateAppointment, refreshTrigger }: DayViewProps) {
   const { tenant } = useUser()
   const [staff, setStaff] = useState<Staff[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -26,98 +27,56 @@ export function DayView({ date, onEditAppointment, onCreateAppointment }: DayVie
     if (!tenant?.schema_name) return
 
     loadData()
-  }, [date, tenant?.schema_name])
+  }, [date, tenant?.schema_name, refreshTrigger])
 
   const loadData = async () => {
+    if (!tenant?.schema_name) return
     setIsLoading(true)
     const supabase = createClient()
 
     try {
       // Cargar staff activo
-      // TODO: Implementar RPC para leer desde schema del tenant
-      // Por ahora usamos datos mock
-      setStaff([
-        {
-          id: '1',
-          tenant_id: tenant?.id || '',
-          first_name: 'María',
-          last_name: 'López',
-          role: 'esteticista',
-          email: 'maria@salon.com',
-          phone: '+34 600 000 001',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          tenant_id: tenant?.id || '',
-          first_name: 'Laura',
-          last_name: 'García',
-          role: 'esteticista',
-          email: 'laura@salon.com',
-          phone: '+34 600 000 002',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ])
+      const { data: staffData, error: staffError } = await supabase
+        .schema(tenant.schema_name)
+        .from('staff')
+        .select('*')
+        .eq('is_active', true)
+
+      if (staffError) throw staffError
+      setStaff(staffData || [])
 
       // Cargar citas del día
-      // TODO: Implementar query real cuando tengamos datos
-      const mockAppointments: Appointment[] = [
-        {
-          id: '1',
-          tenant_id: tenant?.id || '',
-          client_id: 'client-1',
-          staff_id: '1',
-          service_id: 'service-1',
-          start_time: `${date.toISOString().split('T')[0]}T10:00:00Z`,
-          end_time: `${date.toISOString().split('T')[0]}T11:00:00Z`,
-          status: 'confirmed',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          // Datos para display
-          client_name: 'Carmen López',
-          service_name: 'Manicura',
-          service_color: '#ec4899',
-        },
-        {
-          id: '2',
-          tenant_id: tenant?.id || '',
-          client_id: 'client-2',
-          staff_id: '1',
-          service_id: 'service-2',
-          start_time: `${date.toISOString().split('T')[0]}T14:30:00Z`,
-          end_time: `${date.toISOString().split('T')[0]}T16:00:00Z`,
-          status: 'scheduled',
-          notes: 'Primera vez',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          client_name: 'Ana Martínez',
-          service_name: 'Tratamiento facial',
-          service_color: '#8b5cf6',
-        },
-        {
-          id: '3',
-          tenant_id: tenant?.id || '',
-          client_id: 'client-3',
-          staff_id: '2',
-          service_id: 'service-1',
-          start_time: `${date.toISOString().split('T')[0]}T11:00:00Z`,
-          end_time: `${date.toISOString().split('T')[0]}T12:00:00Z`,
-          status: 'confirmed',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          client_name: 'Isabel Ruiz',
-          service_name: 'Pedicura',
-          service_color: '#f59e0b',
-        },
-      ]
+      const startOfDay = new Date(date)
+      startOfDay.setHours(0, 0, 0, 0)
+      const endOfDay = new Date(date)
+      endOfDay.setHours(23, 59, 59, 999)
 
-      setAppointments(mockAppointments)
+      const { data: appointmentsData, error: appointmentsError } = await supabase
+        .schema(tenant.schema_name)
+        .from('appointments')
+        .select(`
+          *,
+          client:clients(first_name, last_name),
+          staff:staff(first_name, last_name),
+          service:services(name, color)
+        `)
+        .gte('start_time', startOfDay.toISOString())
+        .lte('start_time', endOfDay.toISOString())
+
+      if (appointmentsError) throw appointmentsError
+
+      const formattedAppointments: Appointment[] = (appointmentsData || []).map((app: any) => ({
+        ...app,
+        client_name: app.client ? `${app.client.first_name} ${app.client.last_name || ''}`.trim() : 'Cliente sin nombre',
+        staff_name: app.staff ? `${app.staff.first_name} ${app.staff.last_name || ''}`.trim() : 'Personal sin nombre',
+        service_name: app.service ? app.service.name : 'Servicio sin nombre',
+        service_color: app.service ? app.service.color : '#8b5cf6',
+      }))
+
+      setAppointments(formattedAppointments)
     } catch (error) {
       console.error('Error loading agenda data:', error)
+      setAppointments([])
     } finally {
       setIsLoading(false)
     }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, Calendar, Clock, User, Tag, Save } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/hooks/useUser'
-import type { Appointment, Staff, Service } from '@/types'
+import type { Appointment, Staff, Service, Client } from '@/types'
 
 interface AppointmentModalProps {
   isOpen: boolean
@@ -31,6 +31,13 @@ export function AppointmentModal({ isOpen, onClose, appointmentId }: Appointment
   // Data
   const [staff, setStaff] = useState<Staff[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+
+  const filteredClients = clients.filter(c =>
+    `${c.first_name} ${c.last_name || ''} ${c.phone}`
+      .toLowerCase()
+      .includes(clientSearch.toLowerCase())
+  )
 
   useEffect(() => {
     if (isOpen) {
@@ -44,94 +51,79 @@ export function AppointmentModal({ isOpen, onClose, appointmentId }: Appointment
   }, [isOpen, appointmentId])
 
   const loadInitialData = async () => {
+    if (!tenant?.schema_name) return
     setIsLoading(true)
+    const supabase = createClient()
 
-    // TODO: Implementar queries reales
-    // Mock data
-    setStaff([
-      {
-        id: '1',
-        tenant_id: tenant?.id || '',
-        first_name: 'María',
-        last_name: 'López',
-        role: 'esteticista',
-        email: 'maria@salon.com',
-        phone: '+34 600 000 001',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: '2',
-        tenant_id: tenant?.id || '',
-        first_name: 'Laura',
-        last_name: 'García',
-        role: 'esteticista',
-        email: 'laura@salon.com',
-        phone: '+34 600 000 002',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
+    try {
+      // Cargar staff activo
+      const { data: staffData, error: staffError } = await supabase
+        .schema(tenant.schema_name)
+        .from('staff')
+        .select('*')
+        .eq('is_active', true)
 
-    setServices([
-      {
-        id: 'service-1',
-        tenant_id: tenant?.id || '',
-        name: 'Manicura',
-        description: 'Manicura completa',
-        duration: 60,
-        price: 25,
-        color: '#ec4899',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: 'service-2',
-        tenant_id: tenant?.id || '',
-        name: 'Pedicura',
-        description: 'Pedicura completa',
-        duration: 60,
-        price: 30,
-        color: '#f59e0b',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: 'service-3',
-        tenant_id: tenant?.id || '',
-        name: 'Tratamiento facial',
-        description: 'Limpieza facial profunda',
-        duration: 90,
-        price: 45,
-        color: '#8b5cf6',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: 'service-4',
-        tenant_id: tenant?.id || '',
-        name: 'Depilación completa',
-        description: 'Depilación de cuerpo completo',
-        duration: 120,
-        price: 60,
-        color: '#10b981',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
+      if (staffError) throw staffError
+      setStaff(staffData || [])
 
-    setIsLoading(false)
+      // Cargar servicios activos
+      const { data: servicesData, error: servicesError } = await supabase
+        .schema(tenant.schema_name)
+        .from('services')
+        .select('*')
+        .eq('is_active', true)
+
+      if (servicesError) throw servicesError
+      setServices(servicesData || [])
+
+      // Cargar clientas
+      const { data: clientsData } = await supabase
+        .schema(tenant.schema_name)
+        .from('clients')
+        .select('*')
+      setClients(clientsData || [])
+
+    } catch (error) {
+      console.error('Error loading initial data in modal:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const loadAppointment = async (id: string) => {
-    // TODO: Implementar query real
-    // Mock: cargar datos de la cita
+    if (!tenant?.schema_name) return
+    setIsLoading(true)
+    const supabase = createClient()
+    try {
+      const { data, error } = await supabase
+        .schema(tenant.schema_name)
+        .from('appointments')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .eq('id', id)
+        .maybeSingle()
+
+      if (error) throw error
+      if (data) {
+        setSelectedClient(data.client_id)
+        setClientSearch(data.client ? `${data.client.first_name} ${data.client.last_name || ''}`.trim() : '')
+        setStaffId(data.staff_id)
+        setServiceId(data.service_id)
+        const start = new Date(data.start_time)
+        setDate(start.toISOString().split('T')[0])
+        setStartTime(start.toTimeString().substring(0, 5))
+        const durationMs = new Date(data.end_time).getTime() - start.getTime()
+        setDuration(durationMs / 60000)
+        setStatus(data.status)
+        setNotes(data.notes || '')
+      }
+    } catch (error) {
+      console.error('Error loading appointment:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const resetForm = () => {
@@ -160,26 +152,53 @@ export function AppointmentModal({ isOpen, onClose, appointmentId }: Appointment
       return
     }
 
+    if (!tenant?.schema_name) {
+      alert('Información del salón no disponible')
+      return
+    }
+
     setIsSaving(true)
+    const supabase = createClient()
 
     try {
-      // TODO: Implementar guardado real en Supabase
-      // Construir fecha/hora
       const startDateTime = new Date(`${date}T${startTime}:00`)
       const endDateTime = new Date(startDateTime.getTime() + duration * 60000)
+      const service = services.find(s => s.id === serviceId)
+      const price = service ? service.price : 0
 
-      console.log('Guardando cita:', {
+      const payload = {
         client_id: selectedClient,
         staff_id: staffId,
         service_id: serviceId,
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
         status,
+        price,
         notes: notes || null,
-      })
+        updated_at: new Date().toISOString(),
+      }
 
-      // Simular delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (appointmentId) {
+        const { error } = await supabase
+          .schema(tenant.schema_name)
+          .from('appointments')
+          .update(payload)
+          .eq('id', appointmentId)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .schema(tenant.schema_name)
+          .from('appointments')
+          .insert({
+            ...payload,
+            tenant_id: tenant.id,
+            source: 'manual',
+            created_at: new Date().toISOString(),
+          })
+
+        if (error) throw error
+      }
 
       alert('Cita guardada exitosamente')
       onClose()
@@ -220,20 +239,51 @@ export function AppointmentModal({ isOpen, onClose, appointmentId }: Appointment
           {/* Form */}
           <div className="p-6 space-y-6">
             {/* Cliente */}
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Cliente *
               </label>
               <input
                 type="text"
                 value={clientSearch}
-                onChange={(e) => setClientSearch(e.target.value)}
-                placeholder="Buscar por nombre, teléfono o email..."
+                onChange={(e) => {
+                  setClientSearch(e.target.value)
+                  setSelectedClient(null)
+                }}
+                placeholder="Buscar por nombre o teléfono..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
-              <p className="mt-1 text-xs text-gray-500">
-                TODO: Implementar búsqueda de clientes con autocompletar
-              </p>
+              {clientSearch && !selectedClient && (
+                <div className="absolute z-10 w-full bg-white border border-gray-200 mt-1 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {filteredClients.length > 0 ? (
+                    filteredClients.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedClient(c.id)
+                          setClientSearch(`${c.first_name} ${c.last_name || ''}`.trim())
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-purple-50 transition-colors text-sm border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-semibold text-gray-900">
+                          {c.first_name} {c.last_name || ''}
+                        </div>
+                        <div className="text-xs text-gray-500">{c.phone}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                      No se encontraron clientas.
+                    </div>
+                  )}
+                </div>
+              )}
+              {selectedClient && (
+                <div className="mt-1 text-xs text-green-600 flex items-center gap-1 font-medium">
+                  ✓ Clienta seleccionada correctamente
+                </div>
+              )}
             </div>
 
             {/* Staff */}

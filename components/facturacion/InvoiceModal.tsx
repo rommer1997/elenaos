@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, Plus, Trash2, Save, Send, FileText } from 'lucide-react'
+import { useUser } from '@/hooks/useUser'
+import { createClient } from '@/lib/supabase/client'
 
 interface InvoiceModalProps {
   isOpen: boolean
@@ -18,6 +20,11 @@ interface InvoiceLine {
 }
 
 export function InvoiceModal({ isOpen, onClose, invoiceId }: InvoiceModalProps) {
+  const { tenant } = useUser()
+  const [clientSearch, setClientSearch] = useState('')
+  const [clients, setClients] = useState<any[]>([])
+  const [selectedClient, setSelectedClient] = useState<any | null>(null)
+
   const [clientName, setClientName] = useState('')
   const [clientNIF, setClientNIF] = useState('')
   const [clientAddress, setClientAddress] = useState('')
@@ -33,6 +40,32 @@ export function InvoiceModal({ isOpen, onClose, invoiceId }: InvoiceModalProps) 
     }
   ])
   const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && tenant?.schema_name) {
+      loadClients()
+    }
+  }, [isOpen, tenant?.schema_name])
+
+  const loadClients = async () => {
+    if (!tenant?.schema_name) return
+    const supabase = createClient()
+    try {
+      const { data, error } = await supabase
+        .schema(tenant.schema_name)
+        .from('clients')
+        .select('*')
+      if (error) throw error
+      setClients(data || [])
+    } catch (e) {
+      console.error('Error loading clients:', e)
+    }
+  }
+
+  const filteredClients = clients.filter(c =>
+    `${c.first_name} ${c.last_name || ''}`.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    (c.phone && c.phone.includes(clientSearch))
+  )
 
   const addLine = () => {
     setLines([
@@ -75,11 +108,92 @@ export function InvoiceModal({ isOpen, onClose, invoiceId }: InvoiceModalProps) 
   }
 
   const handleSave = async (sendImmediately: boolean = false) => {
+    if (!tenant?.schema_name) {
+      alert('Información del salón no disponible')
+      return
+    }
+
     setIsSaving(true)
+    const supabase = createClient()
 
     try {
-      // TODO: Implementar guardado en BD y envío a VeriFactu
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      const year = new Date(invoiceDate).getFullYear()
+      const { data: maxSeqData, error: maxSeqError } = await supabase
+        .schema(tenant.schema_name)
+        .from('invoices')
+        .select('sequence_number')
+        .eq('year', year)
+        .order('sequence_number', { ascending: false })
+        .limit(1)
+
+      if (maxSeqError) throw maxSeqError
+
+      const nextSequence = maxSeqData && maxSeqData.length > 0 
+        ? maxSeqData[0].sequence_number + 1 
+        : 1
+
+      const invoiceNumber = `FAC-${year}-${nextSequence.toString().padStart(4, '0')}`
+
+      const subtotal = calculateSubtotal()
+      const taxAmount = calculateTax()
+      const totalAmount = calculateTotal()
+
+      const invoicePayload = {
+        tenant_id: tenant.id,
+        number: invoiceNumber,
+        series: 'FAC',
+        year,
+        sequence_number: nextSequence,
+        client_id: selectedClient?.id || null,
+        client_name: clientName,
+        client_nif: clientNIF,
+        client_address: clientAddress || null,
+        issue_date: invoiceDate,
+        due_date: dueDate || null,
+        status: sendImmediately ? 'sent' : 'draft',
+        subtotal,
+        tax_amount: taxAmount,
+        total_amount: totalAmount,
+        verifactu_status: sendImmediately ? 'sent' : 'pending',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      const { data: insertedInvoice, error: insertError } = await supabase
+        .schema(tenant.schema_name)
+        .from('invoices')
+        .insert(invoicePayload)
+        .select()
+        .single()
+
+      if (insertError) throw insertError
+
+      if (insertedInvoice && lines.length > 0) {
+        const linePayloads = lines.map((line, index) => {
+          const lineSubtotal = line.quantity * line.unitPrice
+          const lineTax = lineSubtotal * line.taxRate / 100
+          const lineTotal = lineSubtotal + lineTax
+
+          return {
+            invoice_id: insertedInvoice.id,
+            line_number: index + 1,
+            description: line.description,
+            quantity: line.quantity,
+            unit_price: line.unitPrice,
+            tax_rate: line.taxRate,
+            line_subtotal: lineSubtotal,
+            line_tax: lineTax,
+            line_total: lineTotal
+          }
+        })
+
+        const { error: linesError } = await supabase
+          .schema(tenant.schema_name)
+          .from('invoice_lines')
+          .insert(linePayloads)
+
+        if (linesError) throw linesError
+      }
 
       if (sendImmediately) {
         alert('✅ Factura guardada y enviada correctamente')
@@ -133,10 +247,59 @@ export function InvoiceModal({ isOpen, onClose, invoiceId }: InvoiceModalProps) 
             {/* Client info */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Datos del Cliente</h3>
+              
+              {/* Client Autocomplete Search */}
+              <div className="mb-4 relative">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Buscar Clienta Existente (Opcional)
+                </label>
+                <input
+                  type="text"
+                  value={clientSearch}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value)
+                    setSelectedClient(null)
+                  }}
+                  placeholder="Escribe nombre o teléfono para buscar..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                {clientSearch && !selectedClient && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredClients.length > 0 ? (
+                      filteredClients.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedClient(c)
+                            setClientName(`${c.first_name} ${c.last_name || ''}`.trim())
+                            setClientNIF(c.nif || '')
+                            setClientAddress(c.notes || '')
+                            setClientSearch('')
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-purple-50 flex justify-between items-center border-b border-gray-100 last:border-0"
+                        >
+                          <div>
+                            <span className="font-medium text-gray-900">
+                              {c.first_name} {c.last_name || ''}
+                            </span>
+                            <span className="text-xs text-gray-500 ml-2">({c.phone})</span>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-2 text-sm text-gray-500">
+                        No se encontraron clientas
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre completo *
+                    Nombre completo o Razón Social *
                   </label>
                   <input
                     type="text"

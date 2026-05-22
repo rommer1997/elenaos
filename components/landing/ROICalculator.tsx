@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Calculator, TrendingUp, AlertCircle } from 'lucide-react'
 
 export function ROICalculator() {
@@ -168,13 +169,13 @@ export function ROICalculator() {
 
             {/* CTA */}
             <div className="mt-8 pt-8 border-t-2 border-purple-200 text-center">
-              <a
+              <Link
                 href="/registro"
                 className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all"
               >
                 Empieza a recuperar clientas hoy
                 <TrendingUp className="h-5 w-5" />
-              </a>
+              </Link>
               <p className="text-sm text-gray-600 mt-4">
                 Sin tarjeta de crédito • Prueba gratis 14 días • Cancela cuando quieras
               </p>

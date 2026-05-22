@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   FileText,
   Download,
@@ -13,98 +13,60 @@ import {
   AlertTriangle,
   Search
 } from 'lucide-react'
+import { useUser } from '@/hooks/useUser'
+import { createClient } from '@/lib/supabase/client'
+import type { Invoice } from '@/types'
 
 type ViewType = 'all' | 'draft' | 'sent' | 'paid' | 'overdue'
-
-interface Invoice {
-  id: string
-  number: string
-  clientName: string
-  date: string
-  dueDate: string
-  amount: number
-  status: 'draft' | 'sent' | 'paid' | 'overdue'
-  veriFactuStatus: 'pending' | 'sent' | 'verified' | 'error'
-  items: number
-}
 
 interface InvoiceListProps {
   view: ViewType
 }
 
 export function InvoiceList({ view }: InvoiceListProps) {
+  const { tenant } = useUser()
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Mock data
-  const mockInvoices: Invoice[] = [
-    {
-      id: '1',
-      number: 'FAC-2026-0045',
-      clientName: 'Carmen López García',
-      date: '2026-05-20',
-      dueDate: '2026-06-20',
-      amount: 85.50,
-      status: 'paid',
-      veriFactuStatus: 'verified',
-      items: 3
-    },
-    {
-      id: '2',
-      number: 'FAC-2026-0044',
-      clientName: 'Ana Martínez Ruiz',
-      date: '2026-05-19',
-      dueDate: '2026-06-19',
-      amount: 120.00,
-      status: 'sent',
-      veriFactuStatus: 'sent',
-      items: 4
-    },
-    {
-      id: '3',
-      number: 'FAC-2026-0043',
-      clientName: 'María Rodríguez Pérez',
-      date: '2026-05-18',
-      dueDate: '2026-06-18',
-      amount: 95.00,
-      status: 'overdue',
-      veriFactuStatus: 'verified',
-      items: 2
-    },
-    {
-      id: '4',
-      number: 'FAC-2026-0042',
-      clientName: 'Laura García Fernández',
-      date: '2026-05-17',
-      dueDate: '2026-06-17',
-      amount: 150.00,
-      status: 'paid',
-      veriFactuStatus: 'verified',
-      items: 5
-    },
-    {
-      id: '5',
-      number: 'BORR-2026-0001',
-      clientName: 'Isabel Fernández López',
-      date: '2026-05-20',
-      dueDate: '2026-06-20',
-      amount: 75.00,
-      status: 'draft',
-      veriFactuStatus: 'pending',
-      items: 2
+  useEffect(() => {
+    if (!tenant?.schema_name) return
+    loadInvoices()
+  }, [tenant?.schema_name])
+
+  const loadInvoices = async () => {
+    if (!tenant?.schema_name) return
+    setIsLoading(true)
+    const supabase = createClient()
+    try {
+      const { data, error } = await supabase
+        .schema(tenant.schema_name)
+        .from('invoices')
+        .select(`
+          *,
+          client:clients(first_name, last_name)
+        `)
+      if (error) throw error
+      setInvoices(data || [])
+    } catch (e) {
+      console.error('Error loading invoices:', e)
+      setInvoices([])
+    } finally {
+      setIsLoading(false)
     }
-  ]
+  }
 
-  const filteredInvoices = mockInvoices
+  const filteredInvoices = invoices
     .filter(invoice => {
       if (view !== 'all' && invoice.status !== view) {
         return false
       }
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
+        const clientName = invoice.client ? `${invoice.client.first_name} ${invoice.client.last_name || ''}`.toLowerCase() : ''
         return (
-          invoice.number.toLowerCase().includes(query) ||
-          invoice.clientName.toLowerCase().includes(query)
+          invoice.invoice_number.toLowerCase().includes(query) ||
+          clientName.includes(query)
         )
       }
       return true
@@ -240,29 +202,33 @@ export function InvoiceList({ view }: InvoiceListProps) {
                 {filteredInvoices.map((invoice) => {
                   const statusBadge = getStatusBadge(invoice.status)
                   const StatusIcon = statusBadge.icon
-                  const veriFactuBadge = getVeriFactuBadge(invoice.veriFactuStatus)
+                  const clientName = invoice.client ? `${invoice.client.first_name} ${invoice.client.last_name || ''}`.trim() : 'Cliente sin nombre'
+                  const veriFactuStatus = invoice.verifactu_sent ? 'verified' : 'pending'
+                  const veriFactuBadge = getVeriFactuBadge(veriFactuStatus)
 
                   return (
                     <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-gray-400" />
-                          <span className="font-medium text-gray-900">{invoice.number}</span>
+                          <span className="font-medium text-gray-900">{invoice.invoice_number}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{invoice.clientName}</div>
-                        <div className="text-xs text-gray-500">{invoice.items} líneas</div>
+                        <div className="text-sm text-gray-900">{clientName}</div>
+                        {invoice.payment_method && (
+                          <div className="text-xs text-gray-500">{invoice.payment_method}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(invoice.date).toLocaleDateString('es-ES')}
+                        {new Date(invoice.issue_date).toLocaleDateString('es-ES')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(invoice.dueDate).toLocaleDateString('es-ES')}
+                        {new Date(invoice.due_date || invoice.issue_date).toLocaleDateString('es-ES')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-semibold text-gray-900">
-                          €{invoice.amount.toFixed(2)}
+                          €{invoice.total.toFixed(2)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

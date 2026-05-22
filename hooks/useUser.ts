@@ -62,21 +62,50 @@ export function useUser(): UseUserReturn {
         return
       }
 
-      // Cargar user_profile desde la base de datos
+      // Cargar user_profile desde la base de datos.
+      // Si falta, usamos metadata para no romper cuentas creadas antes del modelo multi-tenant.
       const { data: userProfileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('id, tenant_id, role, first_name, last_name, avatar_url')
         .eq('id', authUser.id)
         .maybeSingle()
 
-      if (profileError) {
+      if (profileError && profileError.code !== 'PGRST116') {
         console.error('Error loading user profile:', profileError)
-        throw new Error('No se pudo cargar el perfil de usuario')
       }
 
       if (!userProfileData) {
-        console.error('User profile not found for user:', authUser.id)
-        throw new Error('Perfil de usuario no encontrado. Por favor contacta soporte.')
+        const { data: simpleProfile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', authUser.id)
+          .maybeSingle()
+
+        const fallbackName = authUser.user_metadata?.full_name || null
+
+        setUser(authUser)
+        setProfile({
+          id: authUser.id,
+          email: authUser.email ?? null,
+          full_name: simpleProfile?.full_name || fallbackName,
+          avatar_url: simpleProfile?.avatar_url || authUser.user_metadata?.avatar_url || null,
+          first_name: authUser.user_metadata?.first_name || simpleProfile?.full_name?.split(' ')[0] || fallbackName?.split(' ')[0],
+          last_name:
+            authUser.user_metadata?.last_name ||
+            simpleProfile?.full_name?.split(' ').slice(1).join(' ') ||
+            fallbackName?.split(' ').slice(1).join(' ') ||
+            undefined,
+          role: 'admin',
+        })
+        setTenant({
+          id: authUser.id,
+          name: authUser.user_metadata?.salon_name || 'Mi Salón',
+          schema_name: undefined,
+          plan_type: 'starter',
+        })
+        setError(new Error('Perfil multi-tenant pendiente de crear'))
+        setIsLoading(false)
+        return
       }
 
       // Cargar tenant desde la base de datos

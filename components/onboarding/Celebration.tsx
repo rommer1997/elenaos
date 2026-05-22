@@ -135,9 +135,9 @@ export function Celebration({ salonName }: CelebrationProps) {
         {/* Help link */}
         <div className="mt-8 text-sm text-gray-600">
           ¿Necesitas ayuda?{' '}
-          <a href="/ayuda" className="text-purple-600 font-semibold hover:underline">
+          <Link href="/ayuda" className="text-purple-600 font-semibold hover:underline">
             Visita nuestro centro de ayuda
-          </a>
+          </Link>
         </div>
       </div>
 

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { X, Save, User, Phone, Mail, Calendar } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@/hooks/useUser'
 
 interface ClientModalProps {
   isOpen: boolean
@@ -10,6 +12,7 @@ interface ClientModalProps {
 }
 
 export function ClientModal({ isOpen, onClose, clientId }: ClientModalProps) {
+  const { tenant } = useUser()
   const [isSaving, setIsSaving] = useState(false)
 
   // Form state
@@ -33,9 +36,30 @@ export function ClientModal({ isOpen, onClose, clientId }: ClientModalProps) {
   }, [isOpen, clientId])
 
   const loadClient = async (id: string) => {
-    // TODO: Implementar query real
-    // Mock: cargar datos de la clienta
-    console.log('Loading client:', id)
+    if (!tenant?.schema_name) return
+    const supabase = createClient()
+    try {
+      const { data, error } = await supabase
+        .schema(tenant.schema_name)
+        .from('clients')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (error) throw error
+      if (data) {
+        setFirstName(data.first_name || '')
+        setLastName(data.last_name || '')
+        setPhone(data.phone || '')
+        setEmail(data.email || '')
+        setBirthDate(data.birth_date || '')
+        setNotes(data.notes || '')
+        setGdprConsent(data.gdpr_consent || false)
+        setMarketingConsent(data.marketing_consent || false)
+      }
+    } catch (error) {
+      console.error('Error loading client:', error)
+    }
   }
 
   const resetForm = () => {
@@ -55,23 +79,47 @@ export function ClientModal({ isOpen, onClose, clientId }: ClientModalProps) {
       return
     }
 
+    if (!tenant?.schema_name) {
+      alert('Información del salón no disponible')
+      return
+    }
+
     setIsSaving(true)
+    const supabase = createClient()
 
     try {
-      // TODO: Implementar guardado real en Supabase
-      console.log('Saving client:', {
+      const payload = {
         first_name: firstName,
-        last_name: lastName,
+        last_name: lastName || null,
         phone,
-        email,
-        birth_date: birthDate || undefined,
-        notes: notes || undefined,
+        email: email || null,
+        birth_date: birthDate || null,
+        notes: notes || null,
         gdpr_consent: gdprConsent,
+        gdpr_consent_date: gdprConsent ? new Date().toISOString() : null,
         marketing_consent: marketingConsent,
-      })
+        updated_at: new Date().toISOString(),
+      }
 
-      // Simular delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (clientId) {
+        const { error } = await supabase
+          .schema(tenant.schema_name)
+          .from('clients')
+          .update(payload)
+          .eq('id', clientId)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .schema(tenant.schema_name)
+          .from('clients')
+          .insert({
+            ...payload,
+            created_at: new Date().toISOString(),
+          })
+
+        if (error) throw error
+      }
 
       alert('Clienta guardada exitosamente')
       onClose()

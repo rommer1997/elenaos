@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Phone, Mail, Calendar, TrendingUp, AlertTriangle, XCircle, Check } from 'lucide-react'
 import { useUser } from '@/hooks/useUser'
+import { createClient } from '@/lib/supabase/client'
 import type { Client, ClientRiskLevel } from '@/types'
 
 interface ClientsTableProps {
@@ -22,132 +23,62 @@ export function ClientsTable({ searchQuery, riskFilter, onEditClient }: ClientsT
   }, [tenant?.schema_name])
 
   const loadClients = async () => {
+    if (!tenant?.schema_name) return
     setIsLoading(true)
+    const supabase = createClient()
 
-    // TODO: Implementar query real a Supabase
-    // Mock data
-    const mockClients: Client[] = [
-      {
-        id: '1',
-        first_name: 'Carmen',
-        last_name: 'López García',
-        phone: '+34 666 123 456',
-        email: 'carmen.lopez@email.com',
-        birth_date: '1985-03-15',
-        gdpr_consent: true,
-        gdpr_consent_date: '2024-01-10',
-        marketing_consent: true,
-        whatsapp_opt_out: false,
-        visit_count: 24,
-        avg_visit_interval_days: 28,
-        last_visit_date: '2026-05-15',
-        predicted_next_visit: '2026-06-12',
-        churn_risk_score: 0.15,
-        risk_level: 'active',
-        lifetime_value: 1450.50,
-        preferred_staff_id: 'staff-1',
-        notes: 'Prefiere citas por la tarde',
-        tags: ['vip', 'regular'],
-        created_at: '2024-01-10T10:00:00Z',
-        updated_at: '2026-05-15T18:30:00Z',
-      },
-      {
-        id: '2',
-        first_name: 'Ana',
-        last_name: 'Martínez Ruiz',
-        phone: '+34 677 234 567',
-        email: 'ana.martinez@email.com',
-        birth_date: '1992-07-22',
-        gdpr_consent: true,
-        gdpr_consent_date: '2024-03-05',
-        marketing_consent: true,
-        whatsapp_opt_out: false,
-        visit_count: 12,
-        avg_visit_interval_days: 35,
-        last_visit_date: '2026-04-20',
-        predicted_next_visit: '2026-05-25',
-        churn_risk_score: 0.45,
-        risk_level: 'warm',
-        lifetime_value: 680.00,
-        notes: 'Alergia a ciertos productos',
-        tags: ['nueva'],
-        created_at: '2024-03-05T11:00:00Z',
-        updated_at: '2026-04-20T16:00:00Z',
-      },
-      {
-        id: '3',
-        first_name: 'Isabel',
-        last_name: 'Fernández',
-        phone: '+34 688 345 678',
-        email: 'isabel.f@email.com',
-        birth_date: '1978-11-30',
-        gdpr_consent: true,
-        gdpr_consent_date: '2023-11-20',
-        marketing_consent: false,
-        whatsapp_opt_out: true,
-        visit_count: 45,
-        avg_visit_interval_days: 21,
-        last_visit_date: '2026-03-10',
-        predicted_next_visit: '2026-03-31',
-        churn_risk_score: 0.72,
-        risk_level: 'at_risk',
-        lifetime_value: 2340.75,
-        preferred_staff_id: 'staff-2',
-        notes: 'Cliente desde 2023',
-        tags: ['vip', 'fiel'],
-        created_at: '2023-11-20T09:00:00Z',
-        updated_at: '2026-03-10T14:00:00Z',
-      },
-      {
-        id: '4',
-        first_name: 'Laura',
-        last_name: 'García Sánchez',
-        phone: '+34 699 456 789',
-        email: 'laura.garcia@email.com',
-        birth_date: '1995-05-18',
-        gdpr_consent: true,
-        gdpr_consent_date: '2024-06-15',
-        marketing_consent: true,
-        whatsapp_opt_out: false,
-        visit_count: 8,
-        avg_visit_interval_days: 42,
-        last_visit_date: '2025-12-05',
-        predicted_next_visit: '2026-01-16',
-        churn_risk_score: 0.88,
-        risk_level: 'lost',
-        lifetime_value: 420.00,
-        notes: 'No respondió últimos mensajes',
-        tags: ['inactiva'],
-        created_at: '2024-06-15T12:00:00Z',
-        updated_at: '2025-12-05T17:00:00Z',
-      },
-      {
-        id: '5',
-        first_name: 'María',
-        last_name: 'Rodríguez Torres',
-        phone: '+34 611 567 890',
-        email: 'maria.rodriguez@email.com',
-        birth_date: '1988-09-10',
-        gdpr_consent: true,
-        gdpr_consent_date: '2025-02-01',
-        marketing_consent: true,
-        whatsapp_opt_out: false,
-        visit_count: 18,
-        avg_visit_interval_days: 30,
-        last_visit_date: '2026-05-18',
-        predicted_next_visit: '2026-06-17',
-        churn_risk_score: 0.12,
-        risk_level: 'active',
-        lifetime_value: 985.50,
-        preferred_staff_id: 'staff-1',
-        tags: ['regular'],
-        created_at: '2025-02-01T10:30:00Z',
-        updated_at: '2026-05-18T15:00:00Z',
-      },
-    ]
+    try {
+      const { data, error } = await supabase
+        .schema(tenant.schema_name)
+        .from('clients')
+        .select('*')
 
-    setClients(mockClients)
-    setIsLoading(false)
+      if (error) throw error
+
+      const clientsWithRisk: Client[] = (data || []).map((c: any) => {
+        let risk_level: ClientRiskLevel = 'active'
+        const score = Number(c.churn_risk_score ?? 0)
+        if (score > 0.75) {
+          risk_level = 'lost'
+        } else if (score > 0.5) {
+          risk_level = 'at_risk'
+        } else if (score > 0.25) {
+          risk_level = 'warm'
+        }
+        return {
+          id: c.id,
+          first_name: c.first_name,
+          last_name: c.last_name || undefined,
+          phone: c.phone,
+          email: c.email || undefined,
+          birth_date: c.birth_date || undefined,
+          gdpr_consent: c.gdpr_consent || false,
+          gdpr_consent_date: c.gdpr_consent_date || undefined,
+          marketing_consent: c.marketing_consent || false,
+          whatsapp_opt_out: c.whatsapp_opt_out || false,
+          visit_count: c.visit_count || 0,
+          avg_visit_interval_days: c.avg_visit_interval_days ? Number(c.avg_visit_interval_days) : undefined,
+          last_visit_date: c.last_visit_date || undefined,
+          predicted_next_visit: c.predicted_next_visit || undefined,
+          churn_risk_score: c.churn_risk_score ? Number(c.churn_risk_score) : undefined,
+          risk_level,
+          lifetime_value: Number(c.lifetime_value || 0),
+          preferred_staff_id: c.preferred_staff_id || undefined,
+          notes: c.notes || undefined,
+          ai_notes: c.ai_notes || undefined,
+          tags: c.tags || [],
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        }
+      })
+
+      setClients(clientsWithRisk)
+    } catch (error) {
+      console.error('Error loading real clients:', error)
+      setClients([])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getRiskBadge = (riskLevel: ClientRiskLevel) => {

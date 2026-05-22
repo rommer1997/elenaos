@@ -10,12 +10,13 @@ interface WeekViewProps {
   startDate: Date
   onEditAppointment: (appointmentId: string) => void
   onCreateAppointment: () => void
+  refreshTrigger?: number
 }
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9-21
 const SLOT_HEIGHT = 60
 
-export function WeekView({ startDate, onEditAppointment, onCreateAppointment }: WeekViewProps) {
+export function WeekView({ startDate, onEditAppointment, onCreateAppointment, refreshTrigger }: WeekViewProps) {
   const { tenant } = useUser()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -39,63 +40,47 @@ export function WeekView({ startDate, onEditAppointment, onCreateAppointment }: 
   useEffect(() => {
     if (!tenant?.schema_name) return
     loadAppointments()
-  }, [startDate, tenant?.schema_name])
+  }, [startDate, tenant?.schema_name, refreshTrigger])
 
   const loadAppointments = async () => {
+    if (!tenant?.schema_name) return
     setIsLoading(true)
+    const supabase = createClient()
 
-    // TODO: Implementar query real
-    // Mock data de ejemplo
-    const mockAppointments: Appointment[] = [
-      {
-        id: '1',
-        tenant_id: tenant?.id || '',
-        client_id: 'client-1',
-        staff_id: '1',
-        service_id: 'service-1',
-        start_time: `${weekDays[0].toISOString().split('T')[0]}T10:00:00Z`,
-        end_time: `${weekDays[0].toISOString().split('T')[0]}T11:00:00Z`,
-        status: 'confirmed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        client_name: 'Carmen López',
-        service_name: 'Manicura',
-        service_color: '#ec4899',
-      },
-      {
-        id: '2',
-        tenant_id: tenant?.id || '',
-        client_id: 'client-2',
-        staff_id: '1',
-        service_id: 'service-2',
-        start_time: `${weekDays[2].toISOString().split('T')[0]}T14:00:00Z`,
-        end_time: `${weekDays[2].toISOString().split('T')[0]}T15:30:00Z`,
-        status: 'scheduled',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        client_name: 'Ana Martínez',
-        service_name: 'Tratamiento facial',
-        service_color: '#8b5cf6',
-      },
-      {
-        id: '3',
-        tenant_id: tenant?.id || '',
-        client_id: 'client-3',
-        staff_id: '2',
-        service_id: 'service-1',
-        start_time: `${weekDays[4].toISOString().split('T')[0]}T11:00:00Z`,
-        end_time: `${weekDays[4].toISOString().split('T')[0]}T12:00:00Z`,
-        status: 'confirmed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        client_name: 'Isabel Ruiz',
-        service_name: 'Pedicura',
-        service_color: '#f59e0b',
-      },
-    ]
+    try {
+      const startOfWeek = weekDays[0]
+      const endOfWeek = new Date(weekDays[6])
+      endOfWeek.setHours(23, 59, 59, 999)
 
-    setAppointments(mockAppointments)
-    setIsLoading(false)
+      const { data, error } = await supabase
+        .schema(tenant.schema_name)
+        .from('appointments')
+        .select(`
+          *,
+          client:clients(first_name, last_name),
+          staff:staff(first_name, last_name),
+          service:services(name, color)
+        `)
+        .gte('start_time', startOfWeek.toISOString())
+        .lte('start_time', endOfWeek.toISOString())
+
+      if (error) throw error
+
+      const formatted: Appointment[] = (data || []).map((app: any) => ({
+        ...app,
+        client_name: app.client ? `${app.client.first_name} ${app.client.last_name || ''}`.trim() : 'Cliente sin nombre',
+        staff_name: app.staff ? `${app.staff.first_name} ${app.staff.last_name || ''}`.trim() : 'Personal sin nombre',
+        service_name: app.service ? app.service.name : 'Servicio sin nombre',
+        service_color: app.service ? app.service.color : '#8b5cf6',
+      }))
+
+      setAppointments(formatted)
+    } catch (error) {
+      console.error('Error loading week appointments:', error)
+      setAppointments([])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getAppointmentPosition = (appointment: Appointment) => {

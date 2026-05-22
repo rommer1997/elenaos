@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react'
 import { Calendar, Clock, User, Tag, CheckCircle, XCircle, Circle } from 'lucide-react'
 import { useUser } from '@/hooks/useUser'
+import { createClient } from '@/lib/supabase/client'
 import type { Appointment } from '@/types'
 
 interface ListViewProps {
   onEditAppointment: (appointmentId: string) => void
+  refreshTrigger?: number
 }
 
-export function ListView({ onEditAppointment }: ListViewProps) {
+export function ListView({ onEditAppointment, refreshTrigger }: ListViewProps) {
   const { tenant } = useUser()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -18,79 +20,41 @@ export function ListView({ onEditAppointment }: ListViewProps) {
   useEffect(() => {
     if (!tenant?.schema_name) return
     loadAppointments()
-  }, [tenant?.schema_name])
+  }, [tenant?.schema_name, refreshTrigger])
 
   const loadAppointments = async () => {
+    if (!tenant?.schema_name) return
     setIsLoading(true)
+    const supabase = createClient()
 
-    // TODO: Implementar query real con filtros
-    // Mock data de ejemplo
-    const mockAppointments: Appointment[] = [
-      {
-        id: '1',
-        tenant_id: tenant?.id || '',
-        client_id: 'client-1',
-        staff_id: '1',
-        service_id: 'service-1',
-        start_time: new Date(Date.now() + 86400000).toISOString(), // Mañana
-        end_time: new Date(Date.now() + 86400000 + 3600000).toISOString(),
-        status: 'confirmed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        client_name: 'Carmen López',
-        service_name: 'Manicura',
-        staff_name: 'María López',
-      },
-      {
-        id: '2',
-        tenant_id: tenant?.id || '',
-        client_id: 'client-2',
-        staff_id: '1',
-        service_id: 'service-2',
-        start_time: new Date(Date.now() + 172800000).toISOString(), // Pasado mañana
-        end_time: new Date(Date.now() + 172800000 + 5400000).toISOString(),
-        status: 'scheduled',
-        notes: 'Primera vez',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        client_name: 'Ana Martínez',
-        service_name: 'Tratamiento facial',
-        staff_name: 'María López',
-      },
-      {
-        id: '3',
-        tenant_id: tenant?.id || '',
-        client_id: 'client-3',
-        staff_id: '2',
-        service_id: 'service-1',
-        start_time: new Date(Date.now() - 86400000).toISOString(), // Ayer
-        end_time: new Date(Date.now() - 86400000 + 3600000).toISOString(),
-        status: 'completed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        client_name: 'Isabel Ruiz',
-        service_name: 'Pedicura',
-        staff_name: 'Laura García',
-      },
-      {
-        id: '4',
-        tenant_id: tenant?.id || '',
-        client_id: 'client-4',
-        staff_id: '1',
-        service_id: 'service-3',
-        start_time: new Date(Date.now() + 259200000).toISOString(), // En 3 días
-        end_time: new Date(Date.now() + 259200000 + 7200000).toISOString(),
-        status: 'scheduled',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        client_name: 'Lucía Fernández',
-        service_name: 'Depilación completa',
-        staff_name: 'María López',
-      },
-    ]
+    try {
+      const { data, error } = await supabase
+        .schema(tenant.schema_name)
+        .from('appointments')
+        .select(`
+          *,
+          client:clients(first_name, last_name),
+          staff:staff(first_name, last_name),
+          service:services(name, color)
+        `)
 
-    setAppointments(mockAppointments)
-    setIsLoading(false)
+      if (error) throw error
+
+      const formatted: Appointment[] = (data || []).map((app: any) => ({
+        ...app,
+        client_name: app.client ? `${app.client.first_name} ${app.client.last_name || ''}`.trim() : 'Cliente sin nombre',
+        staff_name: app.staff ? `${app.staff.first_name} ${app.staff.last_name || ''}`.trim() : 'Personal sin nombre',
+        service_name: app.service ? app.service.name : 'Servicio sin nombre',
+        service_color: app.service ? app.service.color : '#8b5cf6',
+      }))
+
+      setAppointments(formatted)
+    } catch (error) {
+      console.error('Error loading appointments list:', error)
+      setAppointments([])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getStatusBadge = (status: string) => {
