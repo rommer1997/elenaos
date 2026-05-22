@@ -45,8 +45,8 @@ export async function generateRetentionMessage(
 ): Promise<GeneratedMessage> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
-  // Usar gemini-2.0-flash-exp (el más rápido y gratuito)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+  // Usar gemini-2.5-flash (el más reciente, rápido y gratuito)
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
   const prompt = buildPromptForClient(clientProfile)
 
@@ -248,7 +248,7 @@ export async function generateClientInsights(
   clientProfile: ClientProfile
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
   const prompt = buildInsightsPrompt(clientProfile)
 
