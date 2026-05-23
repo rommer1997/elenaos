@@ -11,6 +11,12 @@ export default function ClientesPage() {
   const [riskFilter, setRiskFilter] = useState<ClientRiskLevel | 'all'>('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [clientStats, setClientStats] = useState({
+    total: 0,
+    active: 0,
+    atRisk: 0,
+    lost: 0
+  })
 
   const handleCreateClient = () => {
     setSelectedClientId(null)
@@ -22,35 +28,38 @@ export default function ClientesPage() {
     setIsModalOpen(true)
   }
 
-  // Stats mock
+  const handleStatsUpdate = (stats: { total: number; active: number; atRisk: number; lost: number }) => {
+    setClientStats(stats)
+  }
+
   const stats = [
     {
       label: 'Total clientas',
-      value: '248',
+      value: clientStats.total.toString(),
       icon: TrendingUp,
       color: 'text-blue-600',
       bg: 'bg-blue-100',
     },
     {
       label: 'Activas',
-      value: '186',
-      percentage: '75%',
+      value: clientStats.active.toString(),
+      percentage: clientStats.total > 0 ? `${Math.round((clientStats.active / clientStats.total) * 100)}%` : '0%',
       icon: TrendingUp,
       color: 'text-green-600',
       bg: 'bg-green-100',
     },
     {
       label: 'En riesgo',
-      value: '42',
-      percentage: '17%',
+      value: clientStats.atRisk.toString(),
+      percentage: clientStats.total > 0 ? `${Math.round((clientStats.atRisk / clientStats.total) * 100)}%` : '0%',
       icon: AlertCircle,
       color: 'text-orange-600',
       bg: 'bg-orange-100',
     },
     {
       label: 'Perdidas',
-      value: '20',
-      percentage: '8%',
+      value: clientStats.lost.toString(),
+      percentage: clientStats.total > 0 ? `${Math.round((clientStats.lost / clientStats.total) * 100)}%` : '0%',
       icon: TrendingDown,
       color: 'text-red-600',
       bg: 'bg-red-100',
@@ -143,6 +152,7 @@ export default function ClientesPage() {
           searchQuery={searchQuery}
           riskFilter={riskFilter}
           onEditClient={handleEditClient}
+          onStatsUpdate={handleStatsUpdate}
         />
       </div>
 

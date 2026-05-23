@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Mail, Phone, Edit, Trash2, Clock, Palette, Users } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@/hooks/useUser'
 
 interface StaffMember {
   id: string
@@ -29,87 +31,59 @@ interface StaffListProps {
 }
 
 export function StaffList({ onEdit }: StaffListProps) {
-  // Mock data
-  const [staff] = useState<StaffMember[]>([
-    {
-      id: '1',
-      name: 'Elena García',
-      role: 'Propietaria / Estilista Senior',
-      email: 'elena@elenabeauty.com',
-      phone: '+34 666 111 222',
-      specialties: ['Corte', 'Color', 'Peinados', 'Tratamientos'],
-      color: '#9333ea',
-      availability: {
-        monday: { available: true, start: '09:00', end: '20:00' },
-        tuesday: { available: true, start: '09:00', end: '20:00' },
-        wednesday: { available: true, start: '09:00', end: '20:00' },
-        thursday: { available: true, start: '09:00', end: '20:00' },
-        friday: { available: true, start: '09:00', end: '20:00' },
-        saturday: { available: true, start: '10:00', end: '18:00' },
-        sunday: { available: false, start: '', end: '' }
-      },
-      status: 'active'
-    },
-    {
-      id: '2',
-      name: 'María López',
-      role: 'Estilista',
-      email: 'maria@elenabeauty.com',
-      phone: '+34 666 222 333',
-      specialties: ['Corte', 'Peinados', 'Extensiones'],
-      color: '#ec4899',
-      availability: {
-        monday: { available: true, start: '10:00', end: '19:00' },
-        tuesday: { available: true, start: '10:00', end: '19:00' },
-        wednesday: { available: true, start: '10:00', end: '19:00' },
-        thursday: { available: true, start: '10:00', end: '19:00' },
-        friday: { available: true, start: '10:00', end: '19:00' },
-        saturday: { available: false, start: '', end: '' },
-        sunday: { available: false, start: '', end: '' }
-      },
-      status: 'active'
-    },
-    {
-      id: '3',
-      name: 'Carmen Rodríguez',
-      role: 'Técnico de Uñas',
-      email: 'carmen@elenabeauty.com',
-      phone: '+34 666 333 444',
-      specialties: ['Manicura', 'Pedicura', 'Uñas Gel', 'Nail Art'],
-      color: '#8b5cf6',
-      availability: {
-        monday: { available: false, start: '', end: '' },
-        tuesday: { available: true, start: '11:00', end: '20:00' },
-        wednesday: { available: true, start: '11:00', end: '20:00' },
-        thursday: { available: true, start: '11:00', end: '20:00' },
-        friday: { available: true, start: '11:00', end: '20:00' },
-        saturday: { available: true, start: '11:00', end: '20:00' },
-        sunday: { available: false, start: '', end: '' }
-      },
-      status: 'active'
-    },
-    {
-      id: '4',
-      name: 'Ana Martínez',
-      role: 'Esteticista',
-      email: 'ana@elenabeauty.com',
-      phone: '+34 666 444 555',
-      specialties: ['Faciales', 'Depilación', 'Masajes'],
-      color: '#06b6d4',
-      availability: {
-        monday: { available: true, start: '09:00', end: '18:00' },
-        tuesday: { available: true, start: '09:00', end: '18:00' },
-        wednesday: { available: true, start: '09:00', end: '18:00' },
-        thursday: { available: true, start: '09:00', end: '18:00' },
-        friday: { available: true, start: '09:00', end: '18:00' },
-        saturday: { available: true, start: '10:00', end: '15:00' },
-        sunday: { available: false, start: '', end: '' }
-      },
-      status: 'active'
-    }
-  ])
-
+  const { tenant } = useUser()
+  const [staff, setStaff] = useState<StaffMember[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    loadStaff()
+  }, [tenant?.id])
+
+  async function loadStaff() {
+    if (!tenant?.id) return
+
+    const supabase = createClient()
+    setIsLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('staff_members')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .eq('is_active', true)
+        .order('name')
+
+      if (error) throw error
+
+      // Transformar datos de Supabase al formato del componente
+      const staffMembers: StaffMember[] = (data || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        role: s.role || 'Staff',
+        email: s.email || '',
+        phone: s.phone || '',
+        specialties: s.specialties || [],
+        color: s.calendar_color || '#9333ea',
+        availability: s.availability || {
+          monday: { available: true, start: '09:00', end: '18:00' },
+          tuesday: { available: true, start: '09:00', end: '18:00' },
+          wednesday: { available: true, start: '09:00', end: '18:00' },
+          thursday: { available: true, start: '09:00', end: '18:00' },
+          friday: { available: true, start: '09:00', end: '18:00' },
+          saturday: { available: false, start: '', end: '' },
+          sunday: { available: false, start: '', end: '' }
+        },
+        status: 'active'
+      }))
+
+      setStaff(staffMembers)
+    } catch (error) {
+      console.error('Error loading staff:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const filteredStaff = staff.filter(member =>
     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -117,10 +91,24 @@ export function StaffList({ onEdit }: StaffListProps) {
     member.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleDelete = () => {
-    if (confirm('¿Estás segura de eliminar este miembro del personal?')) {
-      // TODO: Implementar eliminación
-      alert('Funcionalidad pendiente')
+  const handleDelete = async (staffId: string) => {
+    if (!confirm('¿Estás segura de eliminar este miembro del personal?')) return
+
+    const supabase = createClient()
+
+    try {
+      const { error } = await supabase
+        .from('staff_members')
+        .update({ is_active: false })
+        .eq('id', staffId)
+
+      if (error) throw error
+
+      // Recargar lista
+      loadStaff()
+    } catch (error) {
+      console.error('Error deleting staff:', error)
+      alert('Error al eliminar el miembro del personal')
     }
   }
 
@@ -149,6 +137,31 @@ export function StaffList({ onEdit }: StaffListProps) {
         </span>
       )
     })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando personal...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (staff.length === 0 && searchTerm === '') {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+        <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          No hay personal registrado
+        </h3>
+        <p className="text-gray-600 mb-6">
+          Añade a tu primer miembro del equipo para comenzar
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -184,7 +197,7 @@ export function StaffList({ onEdit }: StaffListProps) {
         </div>
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="text-3xl font-bold text-orange-600">
-            {Math.round(staff.reduce((acc, s) => acc + getWorkingDaysCount(s.availability), 0) / staff.length)}
+            {staff.length > 0 ? Math.round(staff.reduce((acc, s) => acc + getWorkingDaysCount(s.availability), 0) / staff.length) : 0}
           </div>
           <div className="text-sm text-gray-600 mt-1">Días/semana promedio</div>
         </div>
@@ -236,7 +249,7 @@ export function StaffList({ onEdit }: StaffListProps) {
                     <Edit className="h-5 w-5" />
                   </button>
                   <button
-                    onClick={handleDelete}
+                    onClick={() => handleDelete(member.id)}
                     className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <Trash2 className="h-5 w-5" />
@@ -248,11 +261,11 @@ export function StaffList({ onEdit }: StaffListProps) {
               <div className="space-y-2 mb-4">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Mail className="h-4 w-4" />
-                  <span>{member.email}</span>
+                  <span>{member.email || 'Sin email'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Phone className="h-4 w-4" />
-                  <span>{member.phone}</span>
+                  <span>{member.phone || 'Sin teléfono'}</span>
                 </div>
               </div>
 
@@ -260,14 +273,18 @@ export function StaffList({ onEdit }: StaffListProps) {
               <div className="mb-4">
                 <div className="text-sm font-medium text-gray-700 mb-2">Especialidades</div>
                 <div className="flex flex-wrap gap-2">
-                  {member.specialties.map((specialty) => (
-                    <span
-                      key={specialty}
-                      className="px-2 py-1 text-xs font-medium bg-purple-50 text-purple-700 rounded-lg"
-                    >
-                      {specialty}
-                    </span>
-                  ))}
+                  {member.specialties.length > 0 ? (
+                    member.specialties.map((specialty) => (
+                      <span
+                        key={specialty}
+                        className="px-2 py-1 text-xs font-medium bg-purple-50 text-purple-700 rounded-lg"
+                      >
+                        {specialty}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-gray-500">Sin especialidades</span>
+                  )}
                 </div>
               </div>
 
@@ -289,7 +306,7 @@ export function StaffList({ onEdit }: StaffListProps) {
         ))}
       </div>
 
-      {filteredStaff.length === 0 && (
+      {filteredStaff.length === 0 && searchTerm !== '' && (
         <div className="bg-white rounded-lg shadow-sm p-12 text-center">
           <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">

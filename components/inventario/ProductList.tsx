@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Package,
   Search,
@@ -12,6 +12,8 @@ import {
   XCircle,
   Filter
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@/hooks/useUser'
 
 type ViewType = 'all' | 'low_stock' | 'out_of_stock' | 'categories'
 
@@ -39,112 +41,61 @@ interface ProductListProps {
 }
 
 export function ProductList({ view, selectedCategory, onCategoryChange }: ProductListProps) {
+  const { tenant } = useUser()
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Mock data
-  const mockProducts: Product[] = [
-    {
-      id: '1',
-      name: 'Tinte Castaño Claro',
-      category: 'Tintes',
-      brand: 'L\'Oréal Professionnel',
-      sku: 'TIN-001',
-      currentStock: 2,
-      minStock: 5,
-      maxStock: 15,
-      unitCost: 8.50,
-      unitPrice: 15.00,
-      unit: 'unidad',
-      location: 'Estante A3',
-      supplier: 'Distribuidora Beauty Pro',
-      lastRestockDate: '2026-04-15'
-    },
-    {
-      id: '2',
-      name: 'Esmalte Rojo Pasión',
-      category: 'Esmaltes',
-      brand: 'OPI',
-      sku: 'ESM-045',
-      currentStock: 1,
-      minStock: 3,
-      maxStock: 10,
-      unitCost: 4.50,
-      unitPrice: 8.00,
-      unit: 'unidad',
-      location: 'Cajón B2',
-      supplier: 'Nails Wholesale',
-      lastRestockDate: '2026-03-20'
-    },
-    {
-      id: '3',
-      name: 'Crema Hidratante Facial',
-      category: 'Cosméticos',
-      brand: 'Dermalogica',
-      sku: 'COS-112',
-      currentStock: 3,
-      minStock: 10,
-      maxStock: 25,
-      unitCost: 12.00,
-      unitPrice: 25.00,
-      unit: 'unidad',
-      location: 'Estante C1',
-      supplier: 'Beauty Supplies Inc',
-      lastRestockDate: '2026-05-01'
-    },
-    {
-      id: '4',
-      name: 'Champú Hidratante',
-      category: 'Champús',
-      brand: 'Kerastase',
-      sku: 'CHA-023',
-      currentStock: 15,
-      minStock: 8,
-      maxStock: 30,
-      unitCost: 10.00,
-      unitPrice: 22.00,
-      unit: 'unidad',
-      location: 'Estante A1',
-      supplier: 'Distribuidora Beauty Pro',
-      lastRestockDate: '2026-05-10'
-    },
-    {
-      id: '5',
-      name: 'Limas de uñas profesionales',
-      category: 'Herramientas',
-      brand: 'ProNails',
-      sku: 'HER-008',
-      currentStock: 0,
-      minStock: 20,
-      maxStock: 50,
-      unitCost: 0.50,
-      unitPrice: 1.50,
-      unit: 'unidad',
-      location: 'Cajón B1',
-      supplier: 'Nails Wholesale',
-      lastRestockDate: '2026-02-28'
-    },
-    {
-      id: '6',
-      name: 'Mascarilla Capilar Reparadora',
-      category: 'Tratamientos',
-      brand: 'Olaplex',
-      sku: 'TRA-056',
-      currentStock: 8,
-      minStock: 5,
-      maxStock: 15,
-      unitCost: 18.00,
-      unitPrice: 35.00,
-      unit: 'unidad',
-      location: 'Estante A2',
-      supplier: 'Distribuidora Beauty Pro',
-      lastRestockDate: '2026-05-15'
+  useEffect(() => {
+    loadProducts()
+  }, [tenant?.id])
+
+  async function loadProducts() {
+    if (!tenant?.id) return
+
+    const supabase = createClient()
+    setIsLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .eq('active', true)
+        .order('name')
+
+      if (error) throw error
+
+      // Transformar datos de Supabase al formato del componente
+      const productList: Product[] = (data || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category || 'General',
+        brand: p.brand || '',
+        sku: p.sku || '',
+        currentStock: p.stock || 0,
+        minStock: p.min_stock || 5,
+        maxStock: p.max_stock || 50,
+        unitCost: p.cost || 0,
+        unitPrice: p.price || 0,
+        unit: p.unit || 'unidad',
+        location: p.location || '',
+        supplier: p.supplier || '',
+        lastRestockDate: p.last_restock_date || new Date().toISOString().split('T')[0]
+      }))
+
+      setProducts(productList)
+    } catch (error) {
+      console.error('Error loading products:', error)
+    } finally {
+      setIsLoading(false)
     }
-  ]
+  }
 
   // Categories
-  const categories = ['all', ...Array.from(new Set(mockProducts.map(p => p.category)))]
+  const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))]
 
-  const filteredProducts = mockProducts.filter(product => {
+  const filteredProducts = products.filter(product => {
     // Filter by view
     if (view === 'low_stock' && product.currentStock >= product.minStock) {
       return false
@@ -200,6 +151,31 @@ export function ProductList({ view, selectedCategory, onCategoryChange }: Produc
     return (product.currentStock / product.maxStock) * 100
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando inventario...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (products.length === 0 && searchQuery === '' && view === 'all' && selectedCategory === 'all') {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+        <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          No hay productos en el inventario
+        </h3>
+        <p className="text-gray-600 mb-6">
+          Añade tu primer producto para comenzar a gestionar el stock
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Filters */}
@@ -218,7 +194,7 @@ export function ProductList({ view, selectedCategory, onCategoryChange }: Produc
           </div>
 
           {/* Category filter (only on categories view) */}
-          {view === 'categories' && (
+          {view === 'categories' && categories.length > 1 && (
             <div className="flex items-center gap-2">
               <Filter className="h-5 w-5 text-gray-400" />
               <select
@@ -249,7 +225,7 @@ export function ProductList({ view, selectedCategory, onCategoryChange }: Produc
             <p className="text-gray-600">
               {searchQuery
                 ? 'No se encontraron productos que coincidan con tu búsqueda'
-                : 'Añade tu primer producto al inventario'}
+                : 'No hay productos en esta vista'}
             </p>
           </div>
         ) : (
@@ -304,18 +280,22 @@ export function ProductList({ view, selectedCategory, onCategoryChange }: Produc
 
                 {/* Details */}
                 <div className="space-y-2 text-sm border-t border-gray-200 pt-4">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">SKU:</span>
-                    <span className="font-medium text-gray-900">{product.sku}</span>
-                  </div>
+                  {product.sku && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">SKU:</span>
+                      <span className="font-medium text-gray-900">{product.sku}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-gray-600">Categoría:</span>
                     <span className="font-medium text-gray-900">{product.category}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ubicación:</span>
-                    <span className="font-medium text-gray-900">{product.location}</span>
-                  </div>
+                  {product.location && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Ubicación:</span>
+                      <span className="font-medium text-gray-900">{product.location}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-gray-600">Coste:</span>
                     <span className="font-medium text-gray-900">€{product.unitCost.toFixed(2)}</span>
@@ -324,12 +304,14 @@ export function ProductList({ view, selectedCategory, onCategoryChange }: Produc
                     <span className="text-gray-600">PVP:</span>
                     <span className="font-medium text-gray-900">€{product.unitPrice.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Margen:</span>
-                    <span className="font-medium text-green-600">
-                      {Math.round(((product.unitPrice - product.unitCost) / product.unitPrice) * 100)}%
-                    </span>
-                  </div>
+                  {product.unitPrice > product.unitCost && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Margen:</span>
+                      <span className="font-medium text-green-600">
+                        {Math.round(((product.unitPrice - product.unitCost) / product.unitPrice) * 100)}%
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -340,7 +322,7 @@ export function ProductList({ view, selectedCategory, onCategoryChange }: Produc
                   </button>
                   <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
                     <Package className="h-4 w-4" />
-                    <span>Ajustar stock</span>
+                    <span>Ajustar</span>
                   </button>
                 </div>
               </div>

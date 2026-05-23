@@ -10,9 +10,10 @@ interface ClientsTableProps {
   searchQuery: string
   riskFilter: ClientRiskLevel | 'all'
   onEditClient: (clientId: string) => void
+  onStatsUpdate?: (stats: { total: number; active: number; atRisk: number; lost: number }) => void
 }
 
-export function ClientsTable({ searchQuery, riskFilter, onEditClient }: ClientsTableProps) {
+export function ClientsTable({ searchQuery, riskFilter, onEditClient, onStatsUpdate }: ClientsTableProps) {
   const { tenant } = useUser()
   const [clients, setClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -73,9 +74,22 @@ export function ClientsTable({ searchQuery, riskFilter, onEditClient }: ClientsT
       })
 
       setClients(clientsWithRisk)
+
+      // Calcular stats reales
+      if (onStatsUpdate) {
+        const total = clientsWithRisk.length
+        const active = clientsWithRisk.filter(c => c.risk_level === 'active').length
+        const atRisk = clientsWithRisk.filter(c => c.risk_level === 'at_risk' || c.risk_level === 'warm').length
+        const lost = clientsWithRisk.filter(c => c.risk_level === 'lost').length
+
+        onStatsUpdate({ total, active, atRisk, lost })
+      }
     } catch (error) {
       console.error('Error loading real clients:', error)
       setClients([])
+      if (onStatsUpdate) {
+        onStatsUpdate({ total: 0, active: 0, atRisk: 0, lost: 0 })
+      }
     } finally {
       setIsLoading(false)
     }

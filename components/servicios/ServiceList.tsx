@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Clock, Euro, Edit, Trash2, Package, Tag } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@/hooks/useUser'
 
 interface Service {
   id: string
@@ -19,114 +21,53 @@ interface ServiceListProps {
 }
 
 export function ServiceList({ onEdit }: ServiceListProps) {
-  // Mock data
-  const [services] = useState<Service[]>([
-    {
-      id: '1',
-      name: 'Corte de Pelo',
-      category: 'Peluquería',
-      duration: 30,
-      price: 25,
-      description: 'Corte y lavado básico',
-      products: ['Champú', 'Acondicionador'],
-      status: 'active'
-    },
-    {
-      id: '2',
-      name: 'Tinte Completo',
-      category: 'Coloración',
-      duration: 120,
-      price: 85,
-      description: 'Tinte completo con técnica profesional',
-      products: ['Tinte profesional', 'Oxigenada', 'Champú color', 'Mascarilla'],
-      status: 'active'
-    },
-    {
-      id: '3',
-      name: 'Mechas',
-      category: 'Coloración',
-      duration: 180,
-      price: 120,
-      description: 'Mechas californianas o babylights',
-      products: ['Decolorante', 'Tóner', 'Papel aluminio', 'Champú matizador'],
-      status: 'active'
-    },
-    {
-      id: '4',
-      name: 'Manicura Semipermanente',
-      category: 'Uñas',
-      duration: 60,
-      price: 35,
-      description: 'Manicura con esmalte semipermanente',
-      products: ['Base coat', 'Esmalte semi', 'Top coat', 'Aceite de cutícula'],
-      status: 'active'
-    },
-    {
-      id: '5',
-      name: 'Pedicura Completa',
-      category: 'Uñas',
-      duration: 45,
-      price: 30,
-      description: 'Pedicura con limado, hidratación y esmaltado',
-      products: ['Lima', 'Exfoliante', 'Crema hidratante', 'Esmalte'],
-      status: 'active'
-    },
-    {
-      id: '6',
-      name: 'Facial Hidratante',
-      category: 'Estética',
-      duration: 60,
-      price: 45,
-      description: 'Tratamiento facial completo con limpieza profunda',
-      products: ['Limpiador facial', 'Exfoliante', 'Mascarilla', 'Serum', 'Crema hidratante'],
-      status: 'active'
-    },
-    {
-      id: '7',
-      name: 'Depilación Piernas Completas',
-      category: 'Depilación',
-      duration: 40,
-      price: 28,
-      description: 'Depilación con cera de piernas completas',
-      products: ['Cera caliente', 'Aceite post-depilación', 'Crema calmante'],
-      status: 'active'
-    },
-    {
-      id: '8',
-      name: 'Peinado de Fiesta',
-      category: 'Peluquería',
-      duration: 90,
-      price: 65,
-      description: 'Peinado elaborado para eventos especiales',
-      products: ['Laca', 'Mousse', 'Serum', 'Horquillas'],
-      status: 'active'
-    },
-    {
-      id: '9',
-      name: 'Extensiones de Pestañas',
-      category: 'Estética',
-      duration: 120,
-      price: 80,
-      description: 'Aplicación de extensiones pelo a pelo',
-      products: ['Pestañas sintéticas', 'Adhesivo', 'Primer', 'Removedor'],
-      status: 'active'
-    },
-    {
-      id: '10',
-      name: 'Keratina Brasileña',
-      category: 'Tratamientos',
-      duration: 180,
-      price: 150,
-      description: 'Tratamiento alisador y reparador con keratina',
-      products: ['Keratina brasileña', 'Champú sin sal', 'Acondicionador', 'Serum'],
-      status: 'active'
-    }
-  ])
-
+  const { tenant } = useUser()
+  const [services, setServices] = useState<Service[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
 
   const categories = ['Peluquería', 'Coloración', 'Uñas', 'Estética', 'Depilación', 'Tratamientos']
+
+  useEffect(() => {
+    loadServices()
+  }, [tenant?.id])
+
+  async function loadServices() {
+    if (!tenant?.id) return
+
+    const supabase = createClient()
+    setIsLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .eq('active', true)
+        .order('name')
+
+      if (error) throw error
+
+      // Transformar datos de Supabase al formato del componente
+      const servicesList: Service[] = (data || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        category: s.category || 'Peluquería',
+        duration: s.duration || 30,
+        price: s.price || 0,
+        description: s.description || '',
+        products: s.products || [],
+        status: 'active'
+      }))
+
+      setServices(servicesList)
+    } catch (error) {
+      console.error('Error loading services:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const filteredServices = services.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -136,10 +77,24 @@ export function ServiceList({ onEdit }: ServiceListProps) {
     return matchesSearch && matchesCategory
   })
 
-  const handleDelete = (id: string) => {
-    if (confirm('¿Estás segura de eliminar este servicio?')) {
-      // TODO: Implementar eliminación
-      alert('Funcionalidad pendiente')
+  const handleDelete = async (serviceId: string) => {
+    if (!confirm('¿Estás segura de eliminar este servicio?')) return
+
+    const supabase = createClient()
+
+    try {
+      const { error } = await supabase
+        .from('services')
+        .update({ active: false })
+        .eq('id', serviceId)
+
+      if (error) throw error
+
+      // Recargar lista
+      loadServices()
+    } catch (error) {
+      console.error('Error deleting service:', error)
+      alert('Error al eliminar el servicio')
     }
   }
 
@@ -155,16 +110,39 @@ export function ServiceList({ onEdit }: ServiceListProps) {
     return colors[category] || 'bg-gray-100 text-gray-700'
   }
 
-  const getTotalRevenue = () => {
-    return services.reduce((acc, service) => acc + service.price, 0)
-  }
-
   const getAverageDuration = () => {
+    if (services.length === 0) return 0
     return Math.round(services.reduce((acc, service) => acc + service.duration, 0) / services.length)
   }
 
   const getAveragePrice = () => {
+    if (services.length === 0) return 0
     return Math.round(services.reduce((acc, service) => acc + service.price, 0) / services.length)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando servicios...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (services.length === 0 && searchTerm === '' && selectedCategory === 'all') {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+        <Tag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          No hay servicios registrados
+        </h3>
+        <p className="text-gray-600 mb-6">
+          Añade tu primer servicio para comenzar
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -273,7 +251,7 @@ export function ServiceList({ onEdit }: ServiceListProps) {
               </div>
 
               {/* Products */}
-              {service.products.length > 0 && (
+              {service.products && service.products.length > 0 && (
                 <div>
                   <div className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-2">
                     <Package className="h-3 w-3" />
@@ -301,7 +279,7 @@ export function ServiceList({ onEdit }: ServiceListProps) {
         ))}
       </div>
 
-      {filteredServices.length === 0 && (
+      {filteredServices.length === 0 && (searchTerm !== '' || selectedCategory !== 'all') && (
         <div className="bg-white rounded-lg shadow-sm p-12 text-center">
           <Tag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
